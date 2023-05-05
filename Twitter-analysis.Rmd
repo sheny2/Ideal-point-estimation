@@ -1,0 +1,1089 @@
+---
+title: "AVL_Codes"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F)
+library(mosaic)
+library(caret)
+library(httr)
+library(jsonlite)
+library(RTwitterV2)
+library(tweetscores)
+library(rtweet)
+ggplot2::theme_set(ggplot2::theme_bw())
+knitr::opts_chunk$set(out.width = "100%", fig.align = 'center')
+
+load("All_Data/Final Data with Treatment Assignments.Rdata")
+```
+
+
+## Learn to use twitter API 
+
+Get started with R and V2 of the Twitter API
+
+```{r}
+# Three Bear Tokens used for authentication
+bearer_token <- c("AAAAAAAAAAAAAAAAAAAAADyWigEAAAAAIe7qu2QxR%2FGkeNxjm2SzTyoFGgA%3DC6G0cgMpCe1GnIr0HmmE6xDOi5kGouAn6KYeTTKMXOMMcqPCMs")
+
+bearer_token <- c("AAAAAAAAAAAAAAAAAAAAAG6uiAEAAAAA8d6sH90zLVN3SHmskBVo1r%2BQ4Tc%3DEUtpPHdbW5XW6tm6EQjIfQqQOu0tIRAyHjtVLuIbNnV1FKD84j")
+
+bearer_token <- c("AAAAAAAAAAAAAAAAAAAAABoZjQEAAAAA0gWmqoUzlFKziClP1YhJTrpYjE4%3Dg5iWkyBV5OFJjdEVeYfjbTMmAP39qyhJQqsm0c7tKQwxB1VQrQ")
+
+headers <- c(`Authorization` = sprintf('Bearer %s', bearer_token))
+```
+
+
+```{r}
+# example of extracting user info
+params <- list(`user.fields` = 'description',
+               `expansions` = 'pinned_tweet_id')
+
+handle <- c('p_barbera')
+url_handle <-
+  sprintf('https://api.twitter.com/2/users/by?usernames=%s', handle)
+
+response <-
+  httr::GET(url = url_handle,
+            httr::add_headers(.headers = headers),
+            query = params)
+obj <- httr::content(response, as = "text")
+print(obj)
+```
+
+
+```{r, eval = F}
+# transform into more readable jason data
+json_data <- fromJSON(obj, flatten = TRUE) %>% as.data.frame
+
+final <-
+  sprintf(
+    "Handle: %s\nBio: %s\nPinned Tweet: %s",
+    json_data$data.username,
+    json_data$data.description,
+    json_data$includes.tweets.text
+  )
+
+cat(final)
+```
+
+
+## RTwitterV2 provides basic user info
+
+```{r}
+# Basic user info
+library(RTwitterV2)
+
+test <- get_timelines_v2(token = bearer_token, user_id = "14273050", n = 100)
+
+test <- get_user_v2(token = bearer_token, user_ids = "959432550400831488, 1006933394, 105839015")
+
+get_user_v2(token = bearer_token, user_ids = "1006933394")
+
+get_user_v2(token = bearer_token, user_ids = "105839015")
+
+get_user_v2(token = bearer_token, user_ids = "1464259289573376003")
+
+# 14273050: following 2649 
+```
+
+
+# Learn to set and use rtweet pacakge
+
+```{r, eval = F}
+library(rtweet)
+
+auth_setup_default()
+
+# Check
+auth_has_default()
+
+# default
+auth_as()
+
+# sepcify as my app token
+my_app <- rtweet_app()
+auth_as(my_app)
+
+auth_get()
+
+auth_sitrep()
+```
+
+
+```{r}
+rtweet::lookup_users("271184449")
+
+lookup_users(as_screenname("123456"))
+```
+
+```{r}
+f <- get_friends("14273050", n = Inf, retryonratelimit = T)
+f[,2]
+```
+
+
+
+
+
+# Get follower data
+
+My twitter id: 1464259289573376003
+
+```{r}
+tweet_id <- "1464259289573376003"
+
+url_handle <- glue::glue("https://api.twitter.com/2/users/{status_id}/following?", status_id = tweet_id)
+
+params <- list(`user.fields` = 'created_at',
+               `expansions` = 'pinned_tweet_id')
+
+response <- httr::GET(url = url_handle,
+                     httr::add_headers(.headers = headers))
+
+obj <- httr::content(response, as = "text")
+
+x <- rjson::fromJSON(obj)
+
+x$data %>% 
+  purrr::map_chr("id")
+
+x$meta$next_token
+```
+
+
+## API Pagenization issue 
+
+```{r}
+get_following <- function(tweet_id){
+  
+  page <- 1
+  full <- list()
+  next_page_token <- ""
+  
+  repeat {
+    cat("Grab Page:", page, "\n")   # keep track of pages (not necessary but could be useful)
+
+    params <- list(`user.fields` = 'created_at',
+               `expansions` = 'pinned_tweet_id')
+  
+  if (next_page_token == "")
+    {url_handle <- 
+      glue::glue("https://api.twitter.com/2/users/{status_id}/following?max_results=1000", 
+                 status_id = tweet_id)}
+  else
+  {url_handle <- glue::glue("https://api.twitter.com/2/users/{status_id}/following?max_results=1000&pagination_token={page_token}", status_id = tweet_id, page_token = next_page_token)}
+  
+    response <- httr::GET(url = url_handle,
+                     httr::add_headers(.headers = headers))
+    
+    obj <- httr::content(response, as = "text")
+    
+    x <- rjson::fromJSON(obj)
+    full <- c(full, x$data %>% purrr::map_chr("id"))
+    
+    if (is.null(x$meta$next_token))
+    {
+      cat("Final Page Counts Stops at:", page, "\n")
+      break
+    }
+    next_page_token <-x$meta$next_token
+    page = page + 1
+}
+  return(unlist(full))
+}
+```
+
+
+```{r}
+# test on user
+user_friends_14273050 <- get_following("14273050")
+length(user_friends_14273050)
+
+
+user_friends <- get_following("105839015")
+length(user_friends)
+```
+
+
+# Get follower data at specific time point? 
+
+## Not Possible right now
+
+```{r}
+tweet_id <- "14273050"
+
+url_handle <- glue::glue("https://api.twitter.com/2/users/{status_id}/following?max_results=1000", status_id = tweet_id)
+
+params <- list(`user.fields` = 'created_at',
+               `expansions` = 'pinned_tweet_id')
+
+response <- httr::GET(url = url_handle,
+                     httr::add_headers(.headers = headers))
+
+obj <- httr::content(response, as = "text")
+
+x <- rjson::fromJSON(obj)
+
+x$data %>% 
+  purrr::map_chr("id")
+```
+
+
+
+## Barbera
+
+
+```{r, warning=F}
+library(tweetscores)
+
+  # Barbera's authentication does not work now
+ # my_oauth <- list(consumer_key = "Ut4TOAU9P1xZBXV9NUoSL5aOV",
+ #   consumer_secret = "7NjtXUgNbENHVxKlUAA96HisXS73xMHwDVyW9MUXVE2Ud7DzJi",
+ #   access_token="dTVYRUtJSFZ1V19fM0dwS05mekg6MTpjaQ",
+ #   access_token_secret = "rqKmQkBO8vRExhTbmU2vdprfAnwWKThKcjGEKmczt2Y2t7-bsq")
+
+ # friends <- getFriends(screen_name="p_barbera", oauth=my_oauth)
+ # results <- estimateIdeology(tweet_id,  friends)
+ 
+
+# rtweet::lookup_users("142915704")
+
+
+tweet_id <- "142915704"
+user_friends <- rtweet::get_friends(tweet_id, n = Inf, retryonratelimit = T)[,2]
+  
+results <- tweetscores::estimateIdeology(user = tweet_id,  friends = user_friends$to_id, verbose = F)
+
+summary(results)
+
+tracePlot(results, "theta")
+plot(results)
+
+# mean(c(results$samples[,1,2],results$samples[,2,2]))
+
+estimateIdeology2(user = tweet_id, friends = user_friends$to_id)
+
+```
+
+
+
+
+## Our network data from Oct 2017
+
+```{r}
+all_days <- c("2017-11-27")
+user_ids.txt <- list.files(paste("All_Data/Friends/", all_days, sep=""), pattern = "[0-9].txt")
+user_ids <- as.numeric(gsub("([0-9]+).*$", "\\1", user_ids.txt))
+  
+filenames <- list.files(paste("All_Data/Friends/", all_days, sep=""), pattern = "[0-9].txt", full.names = T)
+network_ids <- lapply(filenames, scan)
+```
+
+
+```{r, message = F, eval = F}
+all_days <- list.files("All_Data/Friends/", full.names = F)
+
+# all_days <- c("2017-10-13", "2017-10-14", "2017-10-15") # test
+
+day_user_friend <- list()
+ip <- list()
+
+for (i in seq_along(all_days))
+{
+  user_ids.txt <- list.files(paste("All_Data/Friends/", all_days[i], sep=""), pattern = "[0-9].txt")
+  user_ids <- as.numeric(gsub("([0-9]+).*$", "\\1", user_ids.txt))
+  
+  filenames <- list.files(paste("All_Data/Friends/", all_days[i], sep=""), pattern = "[0-9].txt", full.names = T)
+  network_ids <- lapply(filenames, scan)
+  
+  user_friends_list <- vector(mode = "list", length = length(user_ids))
+  for (j in seq_along(user_ids))
+  {
+    user_friends_list[[j]] <- list(user_ids[j],
+                                   network_ids[[j]])
+  }
+  
+  
+  ideal_point <- c()
+  
+  for (k in seq_along(user_friends_list)) {
+    skip_to_next = FALSE
+    
+    tryCatch(
+      ideal_point[k] <-
+        estimateIdeology2(user_friends_list[[k]][[1]], user_friends_list[[k]][[2]]),
+      error = function(e) {skip_to_next = TRUE}
+    )
+    
+    if (skip_to_next) {next}
+  }
+  
+  one_day_user_friend <- as_tibble(cbind(user_ids, ideal_point, rep(all_days[i], length(user_ids))))
+  colnames(one_day_user_friend) <- c("user_ids", "ideal_point", "Date")
+  ip[[i]] <- one_day_user_friend
+}
+
+```
+
+
+```{r}
+experiment <- bind_rows(ip) # experiment is the daily data in 2017-18
+# save(experiment, file = "experiment.RData")
+# load("experiment.RData") # user ids and their ideal points estimated during the experiment
+
+```
+
+
+```{r}
+user_ids.txt1013 <- list.files(paste("All_Data/Friends/", "2017-10-13", sep=""), pattern = "[0-9].txt")
+user_ids1013 <- as.numeric(gsub("([0-9]+).*$", "\\1", user_ids.txt1013))
+length(user_ids1013)
+```
+
+
+## Important Dates
+
+# 10.13             Data starts. Initial suvery taken
+# 10.17             Experiment Starts (following bots)
+# 11.23-27          Post Survey taken
+# 02.01             This Data ends
+
+```{r}
+length(unique(final_assignments$id_str))
+length(unique((final_assignments %>% filter(treat == "1"))$id_str))
+length(unique((final_assignments %>% filter(treat == "0"))$id_str))
+```
+
+
+```{r, warning=F}
+experiment_assign <- left_join(experiment, final_assignments, by=c("user_ids" = "id_str")) %>% 
+  mutate(ideal_point = as.numeric(ideal_point))
+
+set.seed(123456)
+
+sample_30 <- sample(size = 30, unique((experiment_assign %>% filter(treat == "1"))$user_ids))
+
+experiment_assign %>% filter(user_ids %in% sample_30) %>% 
+ggplot(aes(x=as.Date(Date), y=ideal_point, color = user_ids, group = user_ids)) + geom_line() + 
+  labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + labs(title = "A sample of 30 from Treatment")
+
+
+experiment_assign %>% filter(treat == "1", Date %in% c( "2017-10-13", "2017-11-27", "2018-02-01") ) %>% 
+  ggplot(aes(x=ideal_point, color = Date)) + geom_density(alpha=0.3) + labs(title = "Treatment")
+
+
+experiment_assign %>% filter(treat == "1", Date %in% c("2017-10-13")) %>% 
+  ggplot(aes(y=ideal_point, x = party_ID)) + geom_boxplot()+ labs(title = "Treatment")
+
+
+experiment_assign %>% filter(treat == "1", party_ID == "Republican", Date %in% c("2017-10-16", "2017-11-27", "2018-02-01")) %>%
+  ggplot(aes(x=ideal_point, color = Date, fill = Date)) + geom_density(alpha=0.3) + labs(title = "Republican Treatment")
+
+experiment_assign %>% filter(treat == "1", party_ID == "Democrat", Date %in% c("2017-10-16","2017-11-27", "2018-02-01") ) %>% 
+  ggplot(aes(x=ideal_point, color = Date, fill = Date)) + geom_density(alpha=0.3) + labs(title = "Democrat Treatment")
+```
+
+
+```{r}
+experiment %>%  mutate(ideal_point = as.numeric(ideal_point)) %>% group_by(Date) %>% summarise(sum(ideal_point))
+
+experiment_assign %>% filter(is.na(ideal_point)) %>% group_by(Date) %>% dplyr::summarise(n())
+
+# experiment_assign %>% filter(Date == "2017-10-19", is.na(ideal_point)) 
+```
+
+
+```{r, warning=F}
+set.seed(123456)
+
+sample_30 <- sample(size = 30, unique((experiment_assign %>% filter(treat == "0"))$user_ids)) 
+
+experiment_assign %>% filter(user_ids %in% sample_30) %>% 
+ggplot(aes(x=as.Date(Date), y=ideal_point, color = user_ids, group = user_ids)) + geom_line() + 
+  labs(y = "Estiamted Ideal Point", x= "Date", color = "user id") + labs(title = "A sample of 30 from Control") 
+
+ # + theme(legend.position = "none")
+
+experiment_assign %>% filter(treat == "0", Date %in% c("2017-10-13", "2017-10-16", "2017-11-27", "2018-02-01") ) %>%  
+  ggplot(aes(x=ideal_point, color = Date)) + geom_density(alpha=0.5)
+
+
+experiment_assign %>% filter(treat == "0", party_ID == "Republican", Date %in% c("2017-10-16", "2017-11-27") ) %>% 
+  ggplot(aes(x=ideal_point, color = Date, fill = Date)) + geom_density(alpha=0.3) + labs(title = "Republican Control")
+
+experiment_assign %>% filter(treat == "0", party_ID == "Democrat", Date %in% c("2017-10-16", "2017-11-27") ) %>% 
+  ggplot(aes(x=ideal_point, color = Date, fill = Date)) + geom_density(alpha=0.3) + labs(title = "Democrat Control")
+
+# table(experiment_assign$treat)
+```
+
+```{r}
+experiment_assign %>% filter(treat == "1", party_ID == "Democrat", ideal_point > 0) %>% summarise(n_distinct(user_ids))
+```
+
+
+
+```{r}
+# arrange a single day's following data
+user_ids.txt <- list.files("All_Data/Friends/2017-10-13", pattern="[0-9].txt")
+
+user_ids <- as.numeric(gsub("([0-9]+).*$", "\\1", user_ids.txt))
+
+filenames <- list.files("All_Data/Friends/2017-10-13", pattern="[0-9].txt", full.names = T)
+
+network_ids <- lapply(filenames, scan)
+
+user_friends_list <- list()
+for (i in seq_along(user_ids))
+{
+  user_friends_list[[i]] <- list(user_ids[i], 
+                                 network_ids[[i]])
+}
+
+# user_friends_list[[345]]
+```
+
+
+```{r, message=F}
+# user_friends_list[[1]][[1]]
+# user_friends_list[[1]][[2]]
+# estimateIdeology2(user_friends_list[[1]][[1]], user_friends_list[[1]][[2]])
+
+
+ideal_point <- c()
+
+for (i in seq_along(user_friends_list)) {
+  
+  skip_to_next = FALSE
+  
+  tryCatch(  ideal_point[i] <- estimateIdeology2(user_friends_list[[i]][[1]], user_friends_list[[i]][[2]]), 
+             error = function(e) { skip_to_next = TRUE})
+  
+  if(skip_to_next) { next } 
+}
+
+ideal_point
+```
+
+
+
+
+# Current ideal points
+
+```{r, warning=F}
+# friends = results = ideal_point = vector("list")
+# 
+# id_str <- final_assignments$id_str
+# 
+# # seq_along(user_ids)
+# 
+# for (i in 1:20) 
+# {
+#   # friends[[i]] = get_following(id_str[i])
+#    friends[[i]] = rtweet::get_friends(id_str[i], n = Inf, retryonratelimit = F)
+# }
+```
+
+```{r}
+# issue
+rtweet::get_friends("271184449", n = Inf, retryonratelimit = F)
+
+# check
+get_user_v2(token = bearer_token, user_ids = id_str[5])$user_id
+get_user_v2(token = bearer_token, user_ids = id_str[15])$following_count
+```
+
+
+```{r}
+load("friends.RData")
+
+current_ideal_point<- c()
+status <- c()
+ids <- c()
+for (k in 1:1238) {
+  
+  if (is.null(friends[[k]]))
+  {
+    
+    status[k] = "LOST"
+    ids[k] <- NA
+  }
+  else{
+    ids[k] <- friends[[k]][1, 1]
+    if (is.na(friends[[k]]$to_id[1]))
+    {
+      status[k] = "PRIVATE"
+    }
+    else {
+      status[k] = "NORMAL"
+    }
+  }
+
+    skip_to_next = FALSE
+    tryCatch(
+      current_ideal_point[k] <-
+        estimateIdeology2(friends[[k]][1,1], friends[[k]]$to_id),
+      error = function(e) {skip_to_next = TRUE}
+    )
+
+    if (skip_to_next) {next}
+}
+
+current_pull <- as_tibble(cbind(user_ids = unlist(ids), 
+                ideal_point = current_ideal_point, Date = "2022-11-13",
+                status)) %>% mutate(ideal_point = ifelse(status == "NORMAL", ideal_point, NA)) 
+
+current_pull <- rbind(current_pull, c(NA,NA,"2022-11-13","LOST"))
+current_pull$user_ids <- final_assignments$id_str
+
+
+current_ip <- current_pull
+
+table(current_pull$status)
+
+current_ip %>% filter(status == "NORMAL")
+
+# save(current_ip, file = "current_ip.RData")
+```
+
+
+```{r}
+full_experiment <- rbind(experiment, current_pull %>% select(-status))
+
+full_experiment$ideal_point <- as.numeric(full_experiment$ideal_point)
+```
+
+
+```{r number of participants each day}
+full_experiment_assign <- left_join(full_experiment, final_assignments, by=c("user_ids" = "id_str")) %>% 
+  mutate(ideal_point = as.numeric(ideal_point))%>% tidyr::drop_na(ideal_point, treat)
+
+full_experiment_assign %>% 
+  mutate(ideal_point = ifelse(ideal_point == Inf, 5, ideal_point)) %>% 
+  mutate(ideal_point = ifelse(ideal_point == -Inf, -5, ideal_point))
+
+full_experiment_assign %>% group_by(Date) %>% summarise(n())
+
+save(full_experiment_assign, file = "full_experiment_assign.RData") 
+# this save all user info, assignment, ideal point on each day of experiment and 2022-11-13
+```
+
+
+
+```{r}
+final_assignments$status <- current_pull$status
+
+
+table(final_assignments$status)
+
+table((final_assignments %>% filter(status == "LOST"))$party_ID)
+
+table((final_assignments %>% filter(status == "PRIVATE"))$party_ID)
+```
+
+
+
+
+```{r, fig.width=8, fig.height=4}
+full_experiment_assign %>% filter(Date %in%  c("2017-11-27","2022-11-13") ) %>% ggplot(aes(x=ideal_point, color = party_ID)) + geom_density(alpha=0.3) + facet_wrap(~Date)
+```
+
+
+# Current and Past
+
+```{r, warning=F}
+# new plots
+full_experiment_assign %>% filter(treat == "1", Date %in% c( "2017-10-16", "2018-02-01", "2022-11-13") ) %>% 
+  ggplot(aes(x=ideal_point, color = Date)) + geom_density(alpha=0.3) + labs(title = "Treatment")
+
+
+full_experiment_assign %>% filter(treat == "1", Date %in% c("2017-10-13")) %>% 
+  ggplot(aes(y=ideal_point, x = party_ID)) + geom_boxplot()+ labs(title = "Treatment 2017")
+
+
+full_experiment_assign %>% filter(treat == "1", Date %in% c("2022-11-13")) %>% 
+  ggplot(aes(y=ideal_point, x = party_ID)) + geom_boxplot()+ labs(title = "Treatment 2022")
+
+
+# old plots
+experiment_assign %>% filter(treat == "1", party_ID == "Republican", Date %in% c("2017-10-16", "2017-11-27", "2018-02-01")) %>%
+  ggplot(aes(x=ideal_point, color = Date, fill = Date)) + geom_density(alpha=0.3) + labs(title = "Republican Treatment")
+
+experiment_assign %>% filter(treat == "1", party_ID == "Democrat", Date %in% c("2017-10-16", "2017-11-27", "2018-02-01")) %>%
+  ggplot(aes(x=ideal_point, color = Date, fill = Date)) + geom_density(alpha=0.3) + labs(title = "Democrat Treatment")
+
+# new plots
+full_experiment_assign %>% filter(treat == "1",party_ID == "Republican",Date %in% c("2017-11-27", "2022-11-13") ) %>%
+  ggplot(aes(x=ideal_point)) + geom_density(alpha=0.3) + labs(title = "Republican Treatment") + facet_wrap(~Date)
+
+full_experiment_assign %>% filter(treat == "1", party_ID == "Democrat", Date %in% c("2017-11-27", "2022-11-13") ) %>%
+  ggplot(aes(x=ideal_point)) + geom_density(alpha=0.3) + labs(title = "Democrat Treatment") + facet_wrap(~Date)
+
+full_experiment_assign %>% filter(treat == "1", Date %in% c("2017-11-27", "2022-11-13") ) %>%
+  ggplot(aes(x=ideal_point, color = party_ID)) + geom_density(alpha=0.3) + labs(title = "All Treatment") + facet_wrap(~Date) + theme(legend.position = "none")
+
+
+full_experiment_assign %>% filter(treat == "1", Date %in% c("2017-11-27", "2022-11-13") )  %>% group_by(Date) %>% summarise(n())
+
+full_experiment_assign %>% filter(treat == "1", Date %in% c("2017-11-27", "2022-11-13") )  %>% group_by(Date, party_ID) %>% summarise(n())
+```
+
+
+```{r}
+# new individual ts plots
+set.seed(123456)
+
+sample_50 <- sample(size = 50, unique((full_experiment_assign %>% filter(treat == "1"))$user_ids))
+
+full_experiment_assign %>% filter(user_ids %in% sample_50) %>% 
+ggplot(aes(x=as.Date(Date), y=ideal_point, color = user_ids, group = user_ids)) + geom_line() + 
+  labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + labs(title = "A sample of 50 from Treatment") + theme(legend.position = "none")
+```
+
+
+
+```{r}
+quantile(full_experiment_assign$ideal_point, c(0.01, 0.025))
+
+full_experiment_assign <- full_experiment_assign %>% 
+  mutate(ideal_point = ifelse(ideal_point == Inf, 5, ideal_point)) %>% 
+  mutate(ideal_point = ifelse(ideal_point == -Inf, -5, ideal_point))
+
+summary(full_experiment_assign$ideal_point)
+
+# end the experiment and now 
+full_experiment_assign %>% 
+  filter( Date %in% c("2017-10-16", "2022-11-13"), party_ID == "Democrat") %>% 
+  group_by(user_ids) %>% 
+  mutate(n = n()) %>% 
+  filter(n == 2) %>% 
+  mutate(Difference = diff(ideal_point)) %>% 
+  select(user_ids, ideal_point, Date, Difference, party_ID, treat)  %>% 
+  group_by(treat) %>% 
+  summarise(mean(Difference, na.rm =T))
+
+full_experiment_assign %>% 
+  filter( Date %in% c("2017-10-16", "2022-11-13"), party_ID == "Republican") %>% 
+  group_by(user_ids) %>% 
+  mutate(n = n()) %>% 
+  filter(n == 2) %>% 
+  mutate(Difference = diff(ideal_point)) %>% 
+  select(user_ids, ideal_point, Date, Difference, party_ID, treat)  %>% 
+  group_by(treat) %>% 
+  summarise(mean(Difference, na.rm =T))
+
+
+# during the experiment
+full_experiment_assign %>% 
+  filter( Date %in% c("2017-10-16", "2017-11-28"), party_ID == "Democrat") %>% 
+  group_by(user_ids) %>% 
+  mutate(n = n()) %>% 
+  filter(n == 2) %>% 
+  mutate(Difference = diff(ideal_point)) %>% 
+  select(user_ids, ideal_point, Date, Difference, party_ID, treat)  %>% 
+  group_by(treat) %>% 
+  summarise(mean(Difference, na.rm =T))
+
+full_experiment_assign %>% 
+  filter( Date %in% c("2017-10-16", "2017-11-28"), party_ID == "Republican") %>% 
+  group_by(user_ids) %>% 
+  mutate(n = n()) %>% 
+  filter(n == 2) %>% 
+  mutate(Difference = diff(ideal_point)) %>% 
+  select(user_ids, ideal_point, Date, Difference, party_ID, treat)  %>% 
+  group_by(treat) %>% 
+  summarise(mean(Difference, na.rm =T))
+```
+
+
+
+```{r}
+full_experiment_assign %>% 
+   filter( Date %in% c("2017-10-16"), party_ID == "Republican") %>% 
+   select(user_ids)
+
+correct_rep <- full_experiment_assign %>% 
+   filter( Date %in% c("2017-10-16"), party_ID == "Republican") %>% 
+  filter(ideal_point >= 0 ) %>% select(user_ids)
+
+full_experiment_assign %>% 
+  filter(user_ids %in% correct_rep$user_ids) %>% 
+  filter( Date %in% c("2017-10-16", "2022-11-13"), party_ID == "Republican") %>% 
+  group_by(user_ids) %>% 
+  mutate(n = n()) %>% 
+  filter(n == 2) %>% 
+  mutate(Difference = diff(ideal_point)) %>% 
+  select(user_ids, ideal_point, Date, Difference, party_ID, treat)  %>% 
+  group_by(treat) %>% 
+  summarise(mean(Difference, na.rm =T))
+
+# t.test
+Rep_difference <- full_experiment_assign %>% 
+  filter(user_ids %in% correct_rep$user_ids) %>% 
+  filter( Date %in% c("2017-10-16", "2022-11-13"), party_ID == "Republican") %>% 
+  group_by(user_ids) %>% 
+  mutate(n = n()) %>% 
+  filter(n == 2) %>% 
+  mutate(Difference = diff(ideal_point)) %>% 
+  select(user_ids, ideal_point, Date, Difference, party_ID, treat) %>% 
+  distinct(user_ids, .keep_all = T)
+
+
+t.test((Rep_difference %>% filter(treat == 0))$Difference, 
+      (Rep_difference %>% filter(treat == 1))$Difference)
+```
+
+
+
+
+
+```{r}
+full_experiment_assign %>% 
+   filter( Date %in% c("2017-10-16"), party_ID == "Democrat") %>% 
+   select(user_ids)
+
+
+correct_dem <- full_experiment_assign %>% 
+   filter( Date %in% c("2017-10-16"), party_ID == "Democrat") %>% 
+  filter(ideal_point <= 0 ) %>% select(user_ids)
+
+full_experiment_assign %>% 
+  filter(user_ids %in% correct_dem$user_ids) %>% 
+  filter( Date %in% c("2017-10-16", "2022-11-13"), party_ID == "Democrat") %>% 
+  group_by(user_ids) %>% 
+  mutate(n = n()) %>% 
+  filter(n == 2) %>% 
+  mutate(Difference = diff(ideal_point)) %>% 
+  select(user_ids, ideal_point, Date, Difference, party_ID, treat)  %>% 
+  group_by(treat) %>% 
+  summarise(mean(Difference, na.rm =T))
+
+
+Dem_difference <- full_experiment_assign %>% 
+  filter(user_ids %in% correct_dem$user_ids) %>% 
+  filter( Date %in% c("2017-10-16", "2022-11-13"), party_ID == "Democrat") %>% 
+  group_by(user_ids) %>% 
+  mutate(n = n()) %>% 
+  filter(n == 2) %>% 
+  mutate(Difference = diff(ideal_point)) %>% 
+  select(user_ids, ideal_point, Date, Difference, party_ID, treat)
+
+
+
+t.test((Dem_difference %>% filter(treat == 1))$Difference, 
+      (Dem_difference %>% filter(treat == 0))$Difference)
+
+mean((Dem_difference %>% filter(treat == 0))$Difference)
+mean((Dem_difference %>% filter(treat == 1))$Difference)
+```
+
+
+
+
+```{r}
+# Treat
+full_experiment_assign_withDiff <- full_experiment_assign %>% 
+  filter(treat == "1", Date %in% c("2017-11-27", "2022-11-13")) %>% 
+  group_by(user_ids) %>% 
+  mutate(n = n()) %>% 
+  filter(n == 2) %>% 
+  mutate(Difference = diff(ideal_point)) %>% 
+  select(user_ids, ideal_point, Date, Difference, party_ID)
+
+plot(full_experiment_assign_withDiff$Difference)
+
+# full_experiment_assign_withDiff %>% filter(user_ids %in% "1017373046") %>% 
+# ggplot(aes(x=as.Date(Date), y=ideal_point, color = user_ids, group = user_ids)) + geom_line() + 
+#   labs(y = "Estiamted Ideal Point", x= "Date", color = "user id") + theme(legend.position = "none")
+
+
+full_experiment_assign_withDiff %>% filter(abs(Difference) >= 1) %>% 
+ggplot(aes(x=as.Date(Date), y=ideal_point, color = party_ID, group = user_ids)) + geom_line(size = 1) + 
+  labs(y = "Estiamted Ideal Point", x= "Date", color = "user id") 
+
+full_experiment_assign_withDiff %>% filter(abs(Difference) >= 1, party_ID == "Democrat") %>% 
+ggplot(aes(x=as.Date(Date), y=ideal_point, group = user_ids)) + geom_line(size = 1)  + 
+  labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + theme(legend.position = "none")
+
+full_experiment_assign_withDiff %>% filter(abs(Difference) >= 1, party_ID == "Republican") %>% 
+ggplot(aes(x=as.Date(Date), y=ideal_point, group = user_ids)) + geom_line(size = 1) + 
+  labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + theme(legend.position = "none")
+```
+```{r, fig.width=7, fig.height=3}
+full_experiment_assign_withDiff %>% filter(abs(Difference) >= 0.5) %>% 
+  ggplot(aes(x=as.Date(Date), y=ideal_point, color = user_ids, group = user_ids)) + geom_line() + geom_hline(yintercept = 0, size = 2) + labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + theme(legend.position = "none") + facet_wrap(~party_ID)
+```
+
+
+```{r}
+# Control
+full_control_assign_withDiff <- full_experiment_assign %>% 
+  filter(treat == "0", Date %in% c("2017-11-27", "2022-11-13")) %>% 
+  group_by(user_ids) %>% 
+  mutate(n = n()) %>% 
+  filter(n == 2) %>% 
+  mutate(Difference = diff(ideal_point)) %>% 
+  select(user_ids, ideal_point, Date, Difference, party_ID)
+
+plot(full_control_assign_withDiff$Difference)
+
+full_control_assign_withDiff %>% filter(abs(Difference) >= 1) %>% 
+ggplot(aes(x=as.Date(Date), y=ideal_point, color = party_ID, group = user_ids)) + geom_line(size = 1) + 
+  labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  
+
+full_control_assign_withDiff %>% filter(abs(Difference) >= 1, party_ID == "Democrat") %>% 
+ggplot(aes(x=as.Date(Date), y=ideal_point, group = user_ids)) + geom_line(size = 1)  + 
+  labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + theme(legend.position = "none")
+
+full_control_assign_withDiff %>% filter(abs(Difference) >= 1, party_ID == "Republican") %>% 
+ggplot(aes(x=as.Date(Date), y=ideal_point, group = user_ids)) + geom_line(size = 1) + 
+  labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + theme(legend.position = "none")
+```
+
+
+```{r}
+friends_1017373046 <- rtweet::get_friends("1017373046", n = Inf, retryonratelimit = F)$to_id
+
+sim <- c()
+for (i in 1:5000)
+{sim[i] <- estimateIdeology2(user = "1017373046", friends = friends_1017373046, verbose = F)}
+
+sd(unlist(sim))
+```
+
+
+# case study
+
+```{r}
+# Weak Republican
+full_experiment_assign %>% filter(user_ids == "81681105")
+tweets_81681105 <- get_timeline(user = "81681105", n = Inf)
+
+full_experiment_assign %>% filter(user_ids == "81681105") %>% ggplot(aes(x=as.Date(Date), y=ideal_point))  + geom_line() + 
+  labs(y = "Estiamted Ideal Point", x= "Date") + theme(legend.position = "none")
+```
+
+  
+```{r}
+# Strong Republican
+full_experiment_assign %>% filter(user_ids == "1537752216")
+tweets_1537752216 <- get_timeline(user = "1537752216", n = Inf)
+
+full_experiment_assign %>% filter(user_ids == "1537752216") %>% ggplot(aes(x=as.Date(Date), y=ideal_point))  + geom_line() + 
+  labs(y = "Estiamted Ideal Point", x= "Date") + theme(legend.position = "none")
+```
+
+```{r}
+# Strong Republican
+full_experiment_assign %>% filter(user_ids == "918585656099586048")
+tweets_918585656099586048 <- get_timeline(user = "918585656099586048", n = Inf)
+
+full_experiment_assign %>% filter(user_ids == "918585656099586048") %>% ggplot(aes(x=as.Date(Date), y=ideal_point))  + geom_line() + labs(y = "Estiamted Ideal Point", x= "Date") + theme(legend.position = "none")
+```
+
+
+```{r}
+# Weak Democrat
+full_experiment_assign %>% filter(user_ids == "419650051")
+tweets_419650051 <- get_timeline(user = "419650051", n = Inf)
+
+full_experiment_assign %>% filter(user_ids == "419650051") %>% ggplot(aes(x=as.Date(Date), y=ideal_point))  + geom_line() + 
+  labs(y = "Estiamted Ideal Point", x= "Date") + theme(legend.position = "none")
+```
+
+```{r}
+# Strong Democrat
+full_experiment_assign %>% filter(user_ids == "403290010")
+tweets_403290010 <- get_timeline(user = "403290010", n = Inf)
+
+full_experiment_assign %>% filter(user_ids == "403290010") %>% ggplot(aes(x=as.Date(Date), y=ideal_point))  + geom_line() + 
+  labs(y = "Estiamted Ideal Point", x= "Date") + theme(legend.position = "none")
+```
+
+
+
+```{r}
+load("All_Data/Respondent Twitter Timelines/Respondent Twitter Timelines.Rdata")
+
+min(respondent_tweets$created)
+max(respondent_tweets$created)
+
+respondent_tweets %>% group_by(id_str) %>% dplyr::summarise(n())
+
+respondent_tweets %>% filter(id_str == "403290010")
+```
+
+
+# Two bots 
+
+```{r}
+load("All_Data/Tweets by Conservative Bot.Rdata")
+load("All_Data/Tweets by Liberal Bot.Rdata")
+
+# Conservative 942200215020408832
+# Liberal 941807349504847878
+
+n_distinct(as.Date(conservative_bot_tweets$created))
+n_distinct(as.Date(liberal_bot_tweets$created))
+
+hist(as.Date(conservative_bot_tweets$created), breaks = 117)
+hist(as.Date(liberal_bot_tweets$created), breaks = 112)
+```
+
+
+# Other thoughts
+
+```{r}
+f_counts <- c()
+for (i in 1:10) 
+{
+f_counts[i] <- (get_user_v2(token = bearer_token, user_ids = id_str[i]))$following_count
+}
+f_counts
+```
+
+
+```{r}
+for (i in 1:10) 
+{
+  results[[i]] = estimateIdeology2(user = user_ids[[i]],  
+                                  friends = friends[[i]], verbose = F)
+  
+  ideal_point[[i]] = mean(c(results[[i]]$samples[,1,2],results[[i]]$samples[,2,2]))
+}
+```
+
+
+# New (more) opinion leaders
+
+```{r}
+load("refdataCA.rdata")
+length(refdataCA$colnames)
+
+tweetscores::refdataCA$colmass
+tweetscores::refdataCA$colnames
+tweetscores::refdataCA$id
+tweetscores::refdataCA$qs
+
+tweetscores::refdataCA$colcoord
+```
+
+```{r}
+load("posterior_samples.rdata")
+dim(posterior_samples$alpha)
+length(posterior_samples$gamma)
+
+
+View(posterior_samples$alpha)
+
+
+```
+
+
+```{r}
+load("Final Op Leader Twitter Data.Rdata")
+final_op_data[,c(3,1)]$screen_name
+
+op <- read.csv("op_leader_edges_juncheng.csv")
+
+
+names(final_op_data)
+
+table(final_op_data$lang)
+table(final_op_data$location)
+n_distinct(final_op_data$screen_name)
+```
+
+
+
+# Try academictwitteR
+
+```{r}
+library(academictwitteR)
+set_bearer()
+```
+
+
+```{r}
+tweets <-
+  get_all_tweets(
+    query = "#BlackLivesMatter",
+    start_tweets = "2020-01-01T00:00:00Z",
+    end_tweets = "2020-01-05T00:00:00Z",
+    file = "blmtweets",
+    data_path = "data/",
+    n = 10,
+  )
+
+tweets <-
+  get_all_tweets(
+    users = c("jack", "cbarrie"),
+    start_tweets = "2020-01-01T00:00:00Z",
+    end_tweets = "2020-01-05T00:00:00Z",
+    file = "blmtweets",
+    n = 1000
+  )
+```
+
+
+
+
+
+# data pulling work
+
+#  pull friends timeline
+```{r}
+load("friends.RData")
+
+for (i in seq_along(id_str)) {
+dir.create(path = paste("timeline_friends/", id_str[i], sep = ""), showWarnings = FALSE)
+}
+
+
+for (i in seq_along(id_str)) {
+  
+  respondent <- friends[[i]]$from_id[1]
+  respondent_friends <- friends[[1]]$to_id
+
+  for (j in seq_along(respondent_friends)) 
+  {
+    skip_to_next = FALSE
+    
+    id <- respondent_friends[j]
+    
+      tryCatch(
+        write.csv(apply(get_timeline(id, n = Inf, retryonratelimit = T), 2, as.character),  
+                  paste("timeline_friends/", respondent, "/timeline_", id, ".csv", sep = ""), row.names = F), 
+        error = function(e) {skip_to_next = TRUE}
+      )
+      
+      if (skip_to_next) {next}
+  }
+  
+}
+```
+
+
+
+
+
+consistency 
+
+political elites 
+
+DW-nominate score 
+
+look at the regular people 
+
+
+
+
+
+
+
+
+
+
+

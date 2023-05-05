@@ -1,0 +1,316 @@
+---
+title: "New_Barbera"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F)
+library(mosaic)
+library(caret)
+library(httr)
+library(jsonlite)
+library(RTwitterV2)
+library(tweetscores)
+library(rtweet)
+library(tidyverse)
+ggplot2::theme_set(ggplot2::theme_bw())
+knitr::opts_chunk$set(out.width = "100%", fig.align = 'center')
+
+load("All_Data/Final Data with Treatment Assignments.Rdata")
+
+load("elite_info.RData")
+elite_info
+```
+
+
+```{r, warning=F}
+load("myrefData2.Rdata") # 933 elites 
+gam1 = -myrefData2$colcoord[,1]
+plot(density(gam1))
+# plot(density(scale(gam1)))
+
+# Define new_gamma as the 2nd eigenvector of (yty+WtW)
+new_gamma_c = -scale(eigen(comb_lap_c)$vec[,2])
+yty_gamma = -scale(eigen(lap_yty)$vec[,2])
+
+# Density of new_gamma
+plot(density(new_gamma_c))
+plot(density(yty_gamma))
+
+# Compare gam1 from CA and new_gamma
+
+# plot(gam1, new_gamma, ylim=c(-3.5,4))
+# abline(h=0,v=0)
+# points(gam1,yty_gamma,col="red")
+ggplot(data = NULL) + geom_point(aes(x=gam1, y=new_gamma_c)) + 
+  geom_point(aes(x=gam1, y=yty_gamma), color = "Red", alpha = 0.5) + 
+  labs(y = "new gamma")
+
+
+# Compare 2nd eigenvector from only yty and new_gamma
+# plot(yty_gamma, new_gamma)
+# abline(a=0,b=1)
+ggplot(data = NULL) + geom_point(aes(x=yty_gamma, y=new_gamma_c)) + geom_abline(slope = 1)
+
+ggplot(data = NULL) + geom_point(aes(x=yty_gamma, y=new_gamma_c)) + geom_abline(slope = 1) + xlim(-1,1) + ylim(-2,2)
+
+
+ggplot(data = NULL) + 
+  geom_density(aes(x=new_gamma_c), color = "Blue") + 
+  geom_density(aes(x=yty_gamma), color = "Red")
+```
+
+
+```{r, warning=F}
+load("myrefData2.Rdata") # 933 elites 
+gam1 = -myrefData2$colcoord[,1]
+plot(density(gam1))
+# plot(density(scale(gam1)))
+gam1 = gam1 / (max(gam1) - min(gam1))
+
+# Define new_gamma as the 2nd eigenvector of (yty+WtW)
+new_gamma = -scale(eigen(comb_lap)$vec[,2]) 
+new_gamma = new_gamma / (max(new_gamma) - min(new_gamma))
+
+yty_gamma = -scale(eigen(lap_yty)$vec[,2])
+yty_gamma = yty_gamma / (max(yty_gamma) - min(yty_gamma))
+
+# Density of new_gamma
+plot(density(new_gamma))
+plot(density(yty_gamma))
+
+# Compare gam1 from CA and new_gamma
+
+# plot(gam1, new_gamma, ylim=c(-3.5,4))
+# abline(h=0,v=0)
+# points(gam1,yty_gamma,col="red")
+ggplot(data = NULL) + geom_point(aes(x=gam1, y=new_gamma)) + 
+  geom_point(aes(x=gam1, y=yty_gamma), color = "Red", alpha = 0.5) + 
+  labs(y = "new gamma")
+
+
+# Compare 2nd eigenvector from only yty and new_gamma
+# plot(yty_gamma, new_gamma)
+# abline(a=0,b=1)
+ggplot(data = NULL) + geom_point(aes(x=yty_gamma, y=new_gamma)) + geom_abline(slope = 1)
+
+ggplot(data = NULL) + geom_point(aes(x=yty_gamma, y=new_gamma)) + geom_abline(slope = 1) + xlim(-0.2,0.2) + ylim(-0.25,0.25)
+
+
+ggplot(data = NULL) + geom_density(aes(x=gam1)) + 
+  geom_density(aes(x=new_gamma), color = "Blue") + 
+  geom_density(aes(x=yty_gamma), color = "Red")
+
+c(min(gam1), max(gam1))
+c(min(new_gamma), max(new_gamma))
+c(min(yty_gamma), max(yty_gamma))
+```
+
+
+```{r,fig.width=12}
+par(mfrow=c(1,2))
+plot(gam1, new_gamma)
+plot(gam1, yty_gamma)
+```
+
+
+# Pushed downward? 
+# adding word occurance matrix, would make our estimates about some elites more left-leaning? 
+# adding word occurance matrix, would make our estimates about most elites more right-leaning? 
+# everybody becomes more Democract after considering words [doubt]
+
+
+# standardize
+
+
+```{r}
+compare =  data.frame("elite" = factor(myrefData2$colnames), "gamma" = gam1, "new_gamma"=new_gamma, "yty_gamma"=yty_gamma)
+
+compare = compare %>% mutate(diff = new_gamma - yty_gamma)
+
+hist(compare$diff, breaks = 15)
+
+ggplot(compare, aes(x=elite, y = diff, color = diff < -0.05)) + geom_point() + theme(axis.text.x=element_blank(),axis.ticks.x=element_blank()) 
+```
+
+
+```{r}
+compare[compare$diff <= -0.05, ]$elite
+big_change_elite = elite_info %>% filter(id_str %in% as.vector(compare[compare$diff <= -0.05, ]$elite))
+
+big_change_elite_id = which(factor(myrefData2$colnames) %in% big_change_elite$id_str)
+
+ggplot(data=NULL) + 
+  geom_point(aes(factor(myrefData2$colnames), new_gamma)) + 
+  geom_point(aes(factor(myrefData2$colnames)[big_change_elite_id], new_gamma[big_change_elite_id]), color = "red") +
+  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+```
+```{r}
+# BBC: 742143
+compare[compare$elite == "742143",]
+
+# Vice President Kamala Harris: 742143
+compare[compare$elite == "803694179079458816",]
+
+# Bernie Sanders: 29442313
+compare[compare$elite == "29442313",]
+
+
+# Fox News: 1367531
+compare[compare$elite == "1367531",]
+
+# Tucker Carlson: 22703645
+compare[compare$elite == "22703645",]
+
+# Sean Hannity: 41634520
+compare[compare$elite == "41634520",]
+```
+
+
+
+```{r}
+# BBC -0.3537033
+more_extreme_BBC = elite_info %>% filter(id_str %in% as.vector(compare[compare$new_gamma <= -0.3537033, ]$elite))
+more_extreme_BBC$id_str
+
+
+
+more_extreme_TC = elite_info %>% filter(id_str %in% as.vector(compare[compare$new_gamma >= 0.4744699, ]$elite)) 
+more_extreme_TC$id_str
+
+more_extreme_TC_ori = elite_info %>% filter(id_str %in% as.vector(compare[compare$gamma >= 0.4775918, ]$elite)) 
+more_extreme_TC_ori$id_str
+# a lot more
+```
+
+
+
+```{r}
+more_extreme_BBC_id = which(factor(myrefData2$colnames) %in% more_extreme_BBC$id_str)
+
+more_extreme_TC_id = which(factor(myrefData2$colnames) %in% more_extreme_TC$id_str)
+
+more_extreme_TC_ori_id = which(factor(myrefData2$colnames) %in% more_extreme_TC_ori$id_str)
+
+
+
+ggplot(data=NULL) + 
+  geom_point(aes(factor(myrefData2$colnames), gam1)) + 
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_BBC_id], gam1[more_extreme_BBC_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+ggplot(data=NULL) + 
+  geom_point(aes(factor(myrefData2$colnames), gam1)) + 
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_TC_id], gam1[more_extreme_TC_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+
+
+
+# ggplot(data=NULL) + 
+#   geom_point(aes(factor(myrefData2$colnames), yty_gamma)) + 
+#   geom_point(aes(factor(myrefData2$colnames)[big_change_elite_id], yty_gamma[big_change_elite_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+ggplot(data=NULL) +
+  geom_point(aes(factor(myrefData2$colnames), new_gamma)) +
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_BBC_id], new_gamma[more_extreme_BBC_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+
+ggplot(data=NULL) +
+  geom_point(aes(factor(myrefData2$colnames), new_gamma)) +
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_TC_id], new_gamma[more_extreme_TC_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+
+ggplot(data=NULL) +
+  geom_point(aes(factor(myrefData2$colnames), new_gamma)) +
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_TC_ori_id], new_gamma[more_extreme_TC_ori_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+```
+
+# substantitve meaning
+
+
+
+
+
+# topic modeling of words 
+
+```{r}
+W_freq =  (W)
+big_change_W = W_freq[, colnames(W_freq) %in% compare[compare$diff <= -0.025, ]$elite]
+# rownames(big_change_W)
+sort(rowSums(big_change_W), decreasing = T)
+```
+
+```{r}
+W_occur =  (W>0)
+big_change_W = W_occur[, colnames(W_occur) %in% compare[compare$diff <= -0.07, ]$elite]
+no_big_change_W = W_occur[, !colnames(W_occur) %in% compare[compare$diff <= -0.07, ]$elite]
+
+# rownames(big_change_W)
+sort(rowSums(big_change_W)[rowSums(big_change_W)>4], decreasing = F)
+
+sort(rowSums(big_change_W)[rowSums(big_change_W)>4], decreasing = T)
+
+which(row.names(big_change_W)=="xenophobic")
+
+as.vector(big_change_W[5823,])
+info = elite_info[elite_info$id_str %in% names(big_change_W[5823,]), ]
+info$use_xenophobic = as.vector(big_change_W[5823,])
+info %>% select(name, use_xenophobic)
+```
+
+```{r}
+summary(rowSums(big_change_W))
+
+which(rowSums(no_big_change_W) == 0)
+
+no_big_change_W[which(rowSums(no_big_change_W) == 0),]
+big_change_W[which(rowSums(no_big_change_W) == 0),]
+
+rowSums(big_change_W[which(rowSums(no_big_change_W) == 0),])
+```
+
+
+
+
+
+
+```{r}
+compare[compare$diff >= 0, ]$elite
+rtweet::lookup_users(as.vector(compare[compare$diff >= 0, ]$elite))
+
+W_occur =  (W>0)
+big_change_W = W_occur[, colnames(W_occur) %in% compare[compare$diff > 0, ]$elite]
+# rownames(big_change_W)
+sort(rowSums(big_change_W), decreasing = T)
+
+
+W_freq =  (W)
+big_change_W = W_freq[, colnames(W_freq) %in% compare[compare$diff > 0, ]$elite]
+# rownames(big_change_W)
+sort(rowSums(big_change_W), decreasing = T)
+```
+
+
+```{r}
+sort(rowSums(W), decreasing = T)
+```
+
+```{r}
+# plot(gam1, scale(eigen(lap_WtW)$vec[,2]))
+```
+
+
+```{r}
+# Different sign compared with gam1
+wh = which(((new_gamma>0) - (gam1<0))==0)
+
+plot(gam1, new_gamma, ylim = c(-1,1))
+points(gam1[wh],new_gamma[wh],col="red")
+
+plot(gam1, new_gamma, ylim = c(-1,1)/4)
+points(gam1[wh],new_gamma[wh],col="red")
+
+
+rtweet::lookup_users(myrefData2$colnames[wh]) %>% View()
+```
+
+

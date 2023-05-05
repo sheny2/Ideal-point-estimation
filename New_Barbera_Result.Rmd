@@ -1,0 +1,326 @@
+---
+title: "New_Barbera"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F)
+library(mosaic)
+library(caret)
+library(httr)
+library(jsonlite)
+library(RTwitterV2)
+library(tweetscores)
+library(rtweet)
+ggplot2::theme_set(ggplot2::theme_bw())
+knitr::opts_chunk$set(out.width = "100%", fig.align = 'center')
+
+load("All_Data/Final Data with Treatment Assignments.Rdata")
+```
+
+
+```{r}
+plot(density(tweetscores::refdataCA$colcoord[,1]))
+```
+
+```{r}
+load("elite_info.RData")
+elite_info_full = elite_info[-740,]
+
+load("friends.RData")
+
+load("myrefData.RData")
+load("gam1.RData")
+
+
+gamma = myrefData$colcoord[,1]
+
+plot(density(gam1))
+
+plot(gamma, gam1)
+abline(h = 0)
+abline(v = 0, col = "red")
+
+
+length(myrefData$colnames)
+
+myrefData$qs = tweetscores::refdataCA$qs
+```
+
+```{r}
+# Compare results of ideal point estimations 
+
+# old 
+Barbera_estimateIdeology <- function(user, friends, verbose=TRUE, exact=FALSE,
+                                     replace_outliers=FALSE){
+  if(missing(friends))
+    friends <- getFriends(user)
+  # getting row of adjacency matrix
+  y <- matrix((tweetscores::refdataCA$id %in% friends)*1, nrow=1)
+  # info message
+  if (sum(y)==0){
+    stop("User follows 0 elites!")
+  }
+  message(user, " follows ", sum(y), " elites: ",
+          paste(tweetscores::refdataCA$colname[
+            tweetscores::refdataCA$id %in% friends], collapse=", "))
+  # estimation
+  values <- supplementaryRows(tweetscores::refdataCA, y)
+  # normalizing
+  theta <- tweetscores::refdataCA$qs$theta[which.min(abs(values[1] - (tweetscores::refdataCA$qs$value)))]
+  # adding random noise
+  # see https://github.com/pablobarbera/echo_chambers/blob/master/02_estimation/11-second-stage.r
+  if (!exact) theta <- theta + rnorm(1, 0, 0.05)
+  # replacing outliers
+  if (replace_outliers && (theta == -Inf || theta == Inf)){
+    # sample 10000 values from normal
+    if (!exact) set.seed(123)
+    rs <- rnorm(n=10000)
+    # keep those below or above threshold
+    if (theta == -Inf){ theta <- rs[rs<tweetscores::refdataCA$qs$theta[2]][1] }
+    if (theta == Inf){ theta <- rs[rs>tweetscores::refdataCA$qs$theta[100]][1] }
+  }
+  
+  return(theta)
+}
+
+# tweetscores::refdataCA
+
+
+Barbera_estimateIdeology(user = friends[[3]]$from_id[1], friends = friends[[3]]$to_id)
+
+
+library(doMC)
+doMC::registerDoMC(detectCores()-1)
+getDoParWorkers()
+
+
+old_ideal_points <- foreach(i = 1:1238, .combine = c) %dopar% {
+  tryCatch({
+    tweetscores::estimateIdeology2(user = friends[[i]]$from_id[1], friends = friends[[i]]$to_id)
+  }, error = function(e) {
+    # If an error occurs, return NA
+    return(NA)
+  })
+}
+
+
+
+# new
+
+New_estimateIdeology <- function(user, friends, verbose=TRUE, exact=FALSE,
+                                 replace_outliers=FALSE){
+  if(missing(friends))
+    friends <- getFriends(user)
+  # getting row of adjacency matrix
+  y <- matrix((myrefData$colname %in% friends)*1, nrow=1)
+  # info message
+  if (sum(y)==0){
+    stop("User follows 0 elites!")
+  }
+  message(user, " follows ", sum(y), " elites: ",
+          paste(myrefData$colname[
+            myrefData$colname %in% friends], collapse=", "))
+  # estimation
+  values <- supplementaryRows(myrefData, y)
+  # normalizing
+  theta <- myrefData$qs$theta[which.min(abs(values[1] - (myrefData$qs$value)))]
+  # adding random noise
+  # see https://github.com/pablobarbera/echo_chambers/blob/master/02_estimation/11-second-stage.r
+  if (!exact) theta <- theta + rnorm(1, 0, 0.05)
+  # replacing outliers
+  if (replace_outliers && (theta == -Inf || theta == Inf)){
+    # sample 10000 values from normal
+    if (!exact) set.seed(123)
+    rs <- rnorm(n=10000)
+    # keep those below or above threshold
+    if (theta == -Inf){ theta <- rs[rs<myrefData$qs$theta[2]][1] }
+    if (theta == Inf){ theta <- rs[rs>myrefData$qs$theta[100]][1] }
+  }
+  
+  return(theta)
+}
+
+
+New_estimateIdeology(user = friends[[3]]$from_id[1], friends = friends[[3]]$to_id)
+
+
+new_ideal_points <- foreach(i = 1:1238, .combine = c) %dopar% {
+  tryCatch({
+    New_estimateIdeology(user = friends[[i]]$from_id[1], friends = friends[[i]]$to_id)
+  }, error = function(e) {
+    # If an error occurs, return NA
+    return(NA)
+  })
+}
+```
+
+
+```{r}
+# examine result 
+
+# old elites
+length(tweetscores::refdataCA$colnames)
+# new elites
+length(myrefData$colnames)
+
+
+# combine old and new results
+load("All_Data/Final Data with Treatment Assignments.Rdata")
+
+# all user
+all_id_str = final_assignments$id_str
+
+length(all_id_str)
+
+result_ip_old = data.frame("id_str" = all_id_str[1:(length(all_id_str)-1)], "ideal_point" = old_ideal_points, "estimate" = "old")
+result_ip_new = data.frame("id_str" = all_id_str[1:(length(all_id_str)-1)], "ideal_point" = new_ideal_points, "estimate" = "new")
+
+result_ip = rbind(result_ip_old, result_ip_new) %>% drop_na()
+
+result_ip = left_join(result_ip, final_assignments, by="id_str")
+
+table(result_ip$estimate)
+
+
+
+new_id_avail = (result_ip %>% group_by(id_str) %>% summarise(count = n()) %>% filter(count == 2))$id_str
+
+result_ip_match = result_ip %>% filter(id_str %in% new_id_avail)
+
+n_distinct(result_ip_match$id_str)
+```
+
+```{r}
+# plot 
+result_ip_match %>% filter(estimate == "old") %>% ggplot() + geom_density(aes(x=ideal_point, color = party_ID))
+result_ip_match %>% filter(estimate == "new") %>% ggplot() + geom_density(aes(x=ideal_point, color = party_ID))
+```
+
+```{r}
+# compare
+ggplot(result_ip_match) + geom_density(aes(x=ideal_point, color = party_ID)) + facet_wrap(~estimate)
+
+
+ggplot(result_ip_match) + geom_point(aes(x = id_str, y=ideal_point, color = estimate)) 
+```
+
+
+```{r, fig.height=5, fig.width=5}
+plot((result_ip_match %>% filter(estimate == "new") %>% select(ideal_point))[,1],
+     (result_ip_match %>% filter(estimate == "old") %>% select(ideal_point))[,1],
+     ylab = "old", xlab = "new")
+abline(h = 0)
+abline(v = 0, col = "red")
+```
+
+
+```{r}
+new_point = (result_ip_match %>% filter(estimate == "new") %>% select(ideal_point))[,1]
+old_point = (result_ip_match %>% filter(estimate == "old") %>% select(ideal_point))[,1]
+
+
+new_point_R = (result_ip_match %>% filter(estimate == "new", party_ID == "Republican") %>% select(ideal_point, party_ID))[,1]
+old_point_R = (result_ip_match %>% filter(estimate == "old", party_ID == "Republican") %>% select(ideal_point, party_ID))[,1]
+new_point_D = (result_ip_match %>% filter(estimate == "new", party_ID == "Democrat") %>% select(ideal_point, party_ID))[,1]
+old_point_D = (result_ip_match %>% filter(estimate == "old", party_ID == "Democrat") %>% select(ideal_point, party_ID))[,1]
+
+
+R = ggplot(data = NULL, aes(x=new_point_R, y=old_point_R)) + geom_point()  + labs(x = "new", y="old")
+D = ggplot(data = NULL, aes(x=new_point_D, y=old_point_D)) + geom_point()  + labs(x = "new", y="old")
+gridExtra::grid.arrange(D,R, ncol = 2)
+```
+
+
+
+```{r}
+load("myrefData2.Rdata") # 933 elites 
+gam1 = -myrefData2$colcoord[,1]
+plot(density(gam1))
+
+# Define new_gamma as the 2nd eigenvector of (yty+WtW)
+new_gamma = scale(eigen(comb_lap)$vec[,2])
+
+# Density of new_gamma
+plot(density(new_gamma))
+
+# Compare gam1 from CA and new_gamma
+plot(gam1, new_gamma)
+abline(h=0,v=0)
+points(gam1,scale(eigen(lap_yty)$vec[,2]),col="red")
+
+# Compare 2nd eigenvector from only yty and new_gamma
+plot(scale(eigen(lap_yty)$vec[,2]), new_gamma)
+abline(a=0,b=1)
+```
+
+```{r}
+wh = which(((new_gamma>0) - (gam1<0))!=0)
+wh = which(((new_gamma<0) - (gam1>0))!=0)
+
+plot(gam1, new_gamma, ylim = c(-1,1))
+points(gam1[wh],new_gamma[wh],col="red")
+
+plot(gam1, new_gamma, ylim = c(-1,1)/4)
+points(gam1[wh],new_gamma[wh],col="red")
+
+
+myrefData2$colnames[wh]
+
+rtweet::lookup_users(myrefData2$colnames[wh]) %>% View()
+```
+
+
+```{r}
+plot(density(eigen(WtW)$vec[,1]))
+plot(density(eigen(yty)$vec[,1]))
+
+plot(gam1, scale(eigen(WtW)$vec[,1]))
+plot(gam1, scale(eigen(yty)$vec[,1]))
+
+
+plot(density(eigen(WtW)$vec[,2]))
+plot(density(eigen(yty)$vec[,2]))
+
+plot(gam1, scale(eigen(WtW)$vec[,2]))
+plot(gam1, scale(eigen(yty)$vec[,2]))
+
+
+plot(gam1, scale(eigen(lap_yty)$vec[,2]))
+plot(gam1, scale(eigen(lap_WtW)$vec[,2]))
+```
+
+
+```{r}
+# Load required libraries
+library(tidyverse)
+library(plm)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Create a simulated panel dataset
+n <- 1000
+t <- 10
+id <- rep(1:n, each = t)
+time <- rep(1:t, times = n)
+confounder <- rnorm(n*t, mean = 50, sd = 5)
+covariate <- rnorm(n*t, mean = 20, sd = 3)
+treatment <- rbinom(n*t, size = 1, prob = 0.5)
+outcome <- ifelse(treatment == 1, 80 + 3 * covariate + 2 * confounder + rnorm(n*t, mean = 0, sd = 10), 
+                  50 + 3 * covariate + 2 * confounder + rnorm(n*t, mean = 0, sd = 10))
+
+# Combine the variables into a dataframe
+sim_data <- data.frame(id, time, confounder, covariate, treatment, outcome)
+
+# Convert the dataframe to a panel data object
+sim_panel_data <- pdata.frame(sim_data, index = c("id", "time"))
+
+# View the first few rows of the dataset
+head(sim_panel_data)
+
+```
+
+
+
+
