@@ -13,7 +13,6 @@ library(jsonlite)
 library(tweetscores)
 library(rtweet)
 library(tidyverse)
-library(gridExtra)
 ggplot2::theme_set(ggplot2::theme_bw())
 knitr::opts_chunk$set(out.width = "100%", fig.align = 'center')
 
@@ -70,7 +69,7 @@ plot(density(gam1))
 gam1 = gam1 / (max(gam1) - min(gam1))
 
 # Define new_gamma as the 2nd eigenvector of (yty+WtW)
-new_gamma = -scale(eigen(comb_lap)$vec[,2]) 
+new_gamma = -scale(eigen(lap_WtW)$vec[,2]) 
 new_gamma = new_gamma / (max(new_gamma) - min(new_gamma))
 
 yty_gamma = -scale(eigen(lap_yty)$vec[,2])
@@ -111,8 +110,8 @@ c(min(yty_gamma), max(yty_gamma))
 
 ```{r,fig.width=12}
 par(mfrow=c(1,2))
-plot(gam1, new_gamma, ylim = c(-0.5,0.6))
-plot(gam1, yty_gamma, ylim = c(-0.5,0.6))
+plot(gam1, new_gamma)
+plot(gam1, yty_gamma)
 ```
 
 
@@ -135,8 +134,6 @@ compare = left_join(compare, elite_info %>% mutate(elite = id_str) %>% select(el
 hist(compare$diff, breaks = 15)
 
 ggplot(compare, aes(x=elite, y = diff, color = diff < -0.05)) + geom_point() + theme(axis.text.x=element_blank(),axis.ticks.x=element_blank()) 
-
-
 ```
 
 
@@ -144,6 +141,7 @@ ggplot(compare, aes(x=elite, y = diff, color = diff < -0.05)) + geom_point() + t
 big_change_elite = elite_info %>% filter(id_str %in% as.vector(compare[compare$diff <= -0.05, ]$elite))
 
 big_change_elite_id = which(factor(myrefData2$colnames) %in% big_change_elite$id_str)
+
 
 
 new_ip = data.frame(id_str = factor(myrefData2$colnames)[big_change_elite_id], new_gamma = new_gamma[big_change_elite_id],
@@ -176,9 +174,7 @@ ggplot(data=NULL) +
 
 ```{r, fig.width=15, fig.height=8}
 compare[compare$diff <= -0.05, ]
-five_elites = c("Hillary Clinton", "CNN", 
-                # "Kamala Harris", 
-                "Rep. Jim Jordan", "Nancy Pelosi", "Mike Pence",  "GOP",  "Tucker Carlson", "Sean Hannity", "Joe Biden", "Bernie Sanders")
+five_elites = c("Hillary Clinton", "CNN", "Kamala Harris", "Rep. Jim Jordan", "Nancy Pelosi", "Mike Pence",  "GOP",  "Tucker Carlson", "Sean Hannity", "Joe Biden")
 
 gridExtra::grid.arrange(
   ggplot(data=compare) + 
@@ -215,205 +211,27 @@ blue_color <- "#0000FF"
 red_color <- "#FF0000"
 
 # Create the blue and red color palette
-color_palette <- c(blue_color, "chartreuse3", red_color)
+color_palette <- c(blue_color, "green", red_color)
 
 compare2 = read.csv("compare_add.csv")
 compare2$elite = as.character(compare$elite)
-compare2 = compare2 %>% filter(elite != "216776631")
 gridExtra::grid.arrange(
   ggplot(data=compare2) + 
-  geom_point(aes(elite, gamma, color = party), alpha = 0.4) + 
-  # geom_point(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma), 
-  #            color = "orange", size = 3.5) +
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma, label = name), 
+  geom_point(aes(elite, gamma, color = party), alpha = 1) + 
+  geom_point(data = compare %>% filter(name %in% five_elites),  aes(elite, gamma), 
+             color = "orange", size = 3.5) +
+  geom_text(data = compare %>% filter(name %in% five_elites),  aes(elite, gamma, label = name), 
             color = "black", vjust = -0.1, hjust = 1.1, size = 5) + 
-  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
-    scale_color_manual(values = color_palette) + geom_hline(yintercept = 0) + 
-    labs(x = "", y = expression(" CA estimated "~gamma), color = "Party Alignment") +
-  geom_point(data = compare2 %>% filter(name %in% new_ip$name),  aes(elite, gamma, color = party), 
-            size = 3.5, alpha = 0.4) +
-  geom_point(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma),
-             color = "orange", size = 3.5) +
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma, label = name), 
-            color = "black", vjust = -0.1, hjust = 1.1, size = 5) 
-  # + ylim(-0.5, 0.55)
-,
-ggplot(data=compare2) + 
-  geom_point(aes(elite, new_gamma, color = party), alpha = 0.4) +
-  # geom_point(data = compare2 %>% filter(name %in% five_elites), aes(elite, new_gamma), 
-  #            color = "orange", size = 3.5) +
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, new_gamma, label = name), 
-            color = "black",  vjust = -0.1, hjust = 1.1, size = 5) + 
-  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
-  scale_color_manual(values = color_palette) + geom_hline(yintercept = 0) + 
-  labs(x = "", y = expression(" Text Improved "~gamma), color = "Party Alignment") +
-  geom_point(data = compare2 %>% filter(name %in% new_ip$name),  aes(elite, new_gamma, color = party),
-             size = 3.5, alpha = 0.4) +
-  geom_point(data = compare2 %>% filter(name %in% five_elites), aes(elite, new_gamma), 
-             color = "orange", size = 3.5) +
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, new_gamma, label = name), 
-            color = "black",  vjust = -0.1, hjust = 1.1, size = 5) 
-# + ylim(-0.5, 0.55)
-)
-
-compare2 %>% filter(party == "D", gamma >= 0)  
-compare2 %>% filter(party == "R", gamma <= 0)  
-
-compare2 %>% filter(party == "D", new_gamma >= 0)  
-compare2 %>% filter(party == "R", new_gamma <= 0)   
-
-(compare2 %>% filter(is.na(party)) %>% select(name))$name
-```
-
-
-
-
-```{r, fig.width=15, fig.height=8}
-five_elites = c("Hillary Clinton", "CNN",  "Bernie Sanders",
-                # "Kamala Harris",
-                # "Rep. Jim Jordan", 
-                "Nancy Pelosi", "Mike Pence",  "GOP",  "Tucker Carlson", "Sean Hannity", "Joe Biden", "Michelle Malkin")
-
-p0 =   ggplot(data=compare2) + 
-  geom_point(aes(elite, gamma, color = party), alpha = 1) + 
-  geom_point(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma), 
-             color = "orange", size = 3.5, alpha = 0.7) +
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma, label = name), 
-            color = "black", vjust = 0.5, hjust = 1.1, size = 5) + 
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma, label = name), 
-            color = "black", vjust = 0.5, hjust = 1.1, size = 5) + 
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma, label = name), 
-            color = "black", vjust = 0.5, hjust = 1.1, size = 5) + 
-  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
-  scale_color_manual(values = color_palette,
-                     name = "Party Alignment",
-                     labels = c("Liberal", "Independent", "Conservative", "Unknown")) + geom_hline(yintercept = 0, linewidth = 1) + 
-    labs(x = "", y = expression(" CA estimated "~gamma), color = "Political Alignment")
-
-
-p1 =   ggplot(data=compare2) + 
-  geom_point(aes(elite, gamma, color = party), alpha = 0.4) + 
-  geom_point(data = compare2 %>% filter(name %in% new_ip$name),  aes(elite, gamma, color = party), 
-            size = 3.5, alpha = 0.4) +
-  geom_point(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma), 
-             color = "orange", size = 3.5, alpha = 0.8) +
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma, label = name), 
-            color = "black", vjust = 0.5, hjust = 1.1, size = 5) + 
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma, label = name), 
-            color = "black", vjust = 0.5, hjust = 1.1, size = 5) + 
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, gamma, label = name), 
-            color = "black", vjust = 0.5, hjust = 1.1, size = 5) + 
-  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
-  scale_color_manual(values = color_palette,
-                     name = "Party Alignment",
-                     labels = c("Liberal", "Independent", "Conservative", "Unknown")) + geom_hline(yintercept = 0, linewidth = 1) + 
-    labs(x = "", y = expression(" CA estimated "~gamma), color = "Political Alignment")
-
-
-p2 = ggplot(data=compare2) + 
-  geom_point(aes(elite, new_gamma, color = party), alpha = 0.4) +
-  geom_point(data = compare2 %>% filter(name %in% new_ip$name),  aes(elite, new_gamma, color = party),
-             size = 3.5, alpha = 0.4) +
-  geom_point(data = compare2 %>% filter(name %in% five_elites), aes(elite, new_gamma), 
-             color = "orange", size = 3.5, alpha = 0.8) +
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, new_gamma, label = name), 
-            color = "black",  vjust = -0.1, hjust = 1.1, size = 5) + 
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, new_gamma, label = name), 
-            color = "black",  vjust = -0.1, hjust = 1.1, size = 5) + 
-  geom_text(data = compare2 %>% filter(name %in% five_elites),  aes(elite, new_gamma, label = name), 
-            color = "black",  vjust = -0.1, hjust = 1.1, size = 5) + 
-  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
-  scale_color_manual(values = color_palette,
-                     name = "Party Alignment",
-                     labels = c("Liberal", "Independent", "Conservative", "Unknown")) + geom_hline(yintercept = 0, linewidth = 1) + 
-  labs(x = "", y = expression(" Text Improved "~gamma), color = "Political Alignment") 
-
-
-plt_legend <- lemon::g_legend(p0 +  guides(colour = guide_legend(nrow = 1)))
-
-gridExtra::grid.arrange(arrangeGrob(p1 + theme(legend.position="none"),
-                         p2 + theme(legend.position="none"),
-                         nrow = 2),
-             plt_legend, nrow = 2, heights = c(10, 1))
-
-
-# compare %>% filter(new_gamma > 0.3)
-```
-
-
-```{r, fig.width=15, fig.height=8, eval = F, echo = F}
-five_elites = c("Hillary Clinton", "CNN", "Kamala Harris",
-                # "Rep. Jim Jordan", 
-                "Nancy Pelosi", "Mike Pence",  "GOP",  "Tucker Carlson", "Sean Hannity", "Joe Biden", "Michelle Malkin")
-
-p0 =   ggplot(data=compare2) + 
-  geom_point(aes(elite, gamma, color = party), alpha = 1) + 
-  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
-  scale_color_manual(values = color_palette,
-                     name = "Party Alignment",
-                     labels = c("Liberal", "Independent", "Conservative", "Unknown")) + geom_hline(yintercept = 0, linewidth = 1) + 
-    labs(x = "", y = expression(" CA estimated "~gamma), color = "Political Alignment")
-
-
-p1 =   ggplot(data=compare2) + 
-  geom_point(aes(elite, gamma, color = party), alpha = 1) + 
-  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
-  scale_color_manual(values = color_palette,
-                     name = "Party Alignment",
-                     labels = c("Liberal", "Independent", "Conservative", "Unknown")) + geom_hline(yintercept = 0, linewidth = 1) + 
-    labs(x = "", y = expression(" CA estimated "~gamma), color = "Political Alignment")
-
-
-p2 = ggplot(data=compare2) + 
-  geom_point(aes(elite, new_gamma, color = party), alpha = 1) +
-  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
-  scale_color_manual(values = color_palette,
-                     name = "Party Alignment",
-                     labels = c("Liberal", "Independent", "Conservative", "Unknown")) + geom_hline(yintercept = 0, linewidth = 1) + 
-  labs(x = "", y = expression(" Text Improved "~gamma), color = "Political Alignment") 
-
-
-plt_legend <- lemon::g_legend(p0 +  guides(colour = guide_legend(nrow = 1)))
-
-gridExtra::grid.arrange(arrangeGrob(p1 + theme(legend.position="none"),
-                         p2 + theme(legend.position="none"),
-                         nrow = 2),
-             plt_legend, nrow = 2, heights = c(10, 1))
-
-
-# compare %>% filter(new_gamma > 0.3)
-```
-
-
-
-
-
-
-
-```{r, fig.width=15, fig.height=8}
-# Define the blue and red colors
-blue_color <- "#0000FF"
-red_color <- "#FF0000"
-
-# Create the blue and red color palette
-color_palette <- c(blue_color, "chartreuse3", red_color)
-
-compare2 = read.csv("compare_add.csv")
-compare2$elite = as.character(compare$elite)
-compare2 = compare2 %>% filter(elite != "216776631")
-gridExtra::grid.arrange(
-  ggplot(data=compare2) + 
-  geom_point(aes(elite, gamma, color = party), alpha = 0.4) + 
-  geom_text(data = compare2 ,  aes(elite, gamma, label = name), 
-            color = "black", vjust = -0.1, hjust = 1.1, size = 1.5) + 
   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
     scale_color_manual(values = color_palette) + geom_hline(yintercept = 0) + 
     labs(x = "", y = expression(" CA estimated "~gamma), color = "Party Alignment")
 ,
 ggplot(data=compare2) + 
-  geom_point(aes(elite, yty_gamma, color = party), alpha = 0.4) +
-  geom_text(data = compare2 ,  aes(elite, yty_gamma, label = name), 
-            color = "black",  vjust = -0.1, hjust = 1.1, size = 1.5) + 
+  geom_point(aes(elite, new_gamma, color = party), alpha = 1) +
+  geom_point(data = compare %>% filter(name %in% five_elites), aes(elite, new_gamma), 
+             color = "orange", size = 3.5) +
+  geom_text(data = compare %>% filter(name %in% five_elites),  aes(elite, new_gamma, label = name), 
+            color = "black",  vjust = -0.1, hjust = 1.1, size = 5) + 
   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
   scale_color_manual(values = color_palette) + geom_hline(yintercept = 0) + 
   labs(x = "", y = expression(" Text Improved "~gamma), color = "Party Alignment") 
@@ -427,3 +245,192 @@ compare2 %>% filter(party == "R", new_gamma <= 0)
 
 (compare2 %>% filter(is.na(party)) %>% select(name))$name
 ```
+
+
+
+
+```{r, fig.width=15, fig.height=8}
+five_elites = c("Hillary Clinton", "CNN", "Kamala Harris",
+                # "Rep. Jim Jordan", 
+                "Nancy Pelosi", "Mike Pence",  "GOP",  "Tucker Carlson", "Sean Hannity", "Joe Biden", "Michelle Malkin")
+
+p1 =   ggplot(data=compare2) + 
+  geom_point(aes(elite, gamma, color = party), alpha = 0.75) + 
+  geom_point(data = compare %>% filter(name %in% five_elites),  aes(elite, gamma), 
+             color = "orange", size = 3.5, alpha = 0.7) +
+  geom_text(data = compare %>% filter(name %in% five_elites),  aes(elite, gamma, label = name), 
+            color = "black", vjust = 0.5, hjust = 1.1, size = 5) + 
+  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
+  scale_color_manual(values = color_palette,
+                     name = "Party Alignment",
+                     labels = c("Liberal", "Independent", "Conservative", "Unknown")) + geom_hline(yintercept = 0, linewidth = 1) + 
+    labs(x = "", y = expression(" CA estimated "~gamma), color = "Political Alignment")
+
+
+p2 = ggplot(data=compare2) + 
+  geom_point(aes(elite, new_gamma, color = party), alpha = 0.75) +
+  geom_point(data = compare %>% filter(name %in% five_elites), aes(elite, new_gamma), 
+             color = "orange", size = 3.5, alpha = 0.7) +
+  geom_text(data = compare %>% filter(name %in% five_elites),  aes(elite, new_gamma, label = name), 
+            color = "black",  vjust = -0.1, hjust = 1.1, size = 5) + 
+  theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())  + 
+  scale_color_manual(values = color_palette,
+                     name = "Party Alignment",
+                     labels = c("Liberal", "Independent", "Conservative", "Unknown")) + geom_hline(yintercept = 0, linewidth = 1) + 
+  labs(x = "", y = expression(" Text Improved "~gamma), color = "Political Alignment") 
+
+
+plt_legend <- lemon::g_legend(p1 +  guides(colour = guide_legend(nrow = 1)))
+
+grid.arrange(arrangeGrob(p1 + theme(legend.position="none"),
+                         p2 + theme(legend.position="none"),
+                         nrow = 2),
+             plt_legend, nrow = 2, heights = c(10, 1))
+
+
+compare %>% filter(new_gamma > 0.3)
+```
+
+
+
+
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+
+df1 <- data.frame(x = factor(myrefData2$colnames), y = new_gamma)
+df2 <- data.frame(x = factor(myrefData2$colnames), y = gam1)
+
+# Define the red color
+red_color <- "red"
+
+# Plot 1
+plot1 <- ggplot(data = df1) +
+  geom_point(aes(x, y), alpha = 0.5) +
+  geom_point(data = NULL,
+             aes(x = factor(myrefData2$colnames)[big_change_elite_id], y = new_gamma[big_change_elite_id]),
+             color = red_color, size = 2.5) +
+  geom_text(data = NULL,
+            aes(x = factor(myrefData2$colnames)[big_change_elite_id], y = new_gamma[big_change_elite_id], label = x),
+            color = "black", vjust = -0.5) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  labs(x = "", y = expression("Text Improved "~gamma))
+
+# Plot 2
+plot2 <- ggplot(data = df2) +
+  geom_point(aes(x, y), alpha = 0.5) +
+  geom_point(data = NULL,
+             aes(x = factor(myrefData2$colnames)[big_change_elite_id], y = gam1[big_change_elite_id]),
+             color = , size = 2.5) +
+  geom_text(data = NULL,
+            aes(x = factor(myrefData2$colnames)[big_change_elite_id], y = gam1[big_change_elite_id], label = x),
+            color = "black", vjust = -0.5) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  labs(x = "", y = expression("CA estimated "~gamma))
+
+# Arrange the plots
+grid.arrange(plot1, plot2, nrow = 1)
+```
+
+
+
+
+```{r}
+# BBC: 742143
+compare[compare$elite == "742143",]
+
+# Vice President Kamala Harris: 742143
+compare[compare$elite == "803694179079458816",]
+
+# Bernie Sanders: 29442313
+compare[compare$elite == "29442313",]
+
+
+# Fox News: 1367531
+compare[compare$elite == "1367531",]
+
+# Tucker Carlson: 22703645
+compare[compare$elite == "22703645",]
+
+# Sean Hannity: 41634520
+compare[compare$elite == "41634520",]
+```
+
+
+
+```{r}
+# BBC -0.3537033
+more_extreme_BBC = elite_info %>% filter(id_str %in% as.vector(compare[compare$new_gamma <= -0.3537033, ]$elite))
+more_extreme_BBC$id_str
+
+
+
+more_extreme_TC = elite_info %>% filter(id_str %in% as.vector(compare[compare$new_gamma >= 0.4744699, ]$elite)) 
+more_extreme_TC$id_str
+
+more_extreme_TC_ori = elite_info %>% filter(id_str %in% as.vector(compare[compare$gamma >= 0.4775918, ]$elite)) 
+more_extreme_TC_ori$id_str
+# a lot more
+```
+
+
+
+```{r}
+more_extreme_BBC_id = which(factor(myrefData2$colnames) %in% more_extreme_BBC$id_str)
+
+more_extreme_TC_id = which(factor(myrefData2$colnames) %in% more_extreme_TC$id_str)
+
+more_extreme_TC_ori_id = which(factor(myrefData2$colnames) %in% more_extreme_TC_ori$id_str)
+
+
+ggplot(data=NULL) + 
+  geom_point(aes(factor(myrefData2$colnames), gam1)) + 
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_BBC_id], gam1[more_extreme_BBC_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+ggplot(data=NULL) + 
+  geom_point(aes(factor(myrefData2$colnames), gam1)) + 
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_TC_id], gam1[more_extreme_TC_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+
+# ggplot(data=NULL) + 
+#   geom_point(aes(factor(myrefData2$colnames), yty_gamma)) + 
+#   geom_point(aes(factor(myrefData2$colnames)[big_change_elite_id], yty_gamma[big_change_elite_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+ggplot(data=NULL) +
+  geom_point(aes(factor(myrefData2$colnames), new_gamma)) +
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_BBC_id], new_gamma[more_extreme_BBC_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+ggplot(data=NULL) +
+  geom_point(aes(factor(myrefData2$colnames), new_gamma)) +
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_TC_id], new_gamma[more_extreme_TC_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+ggplot(data=NULL) +
+  geom_point(aes(factor(myrefData2$colnames), new_gamma)) +
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_TC_ori_id], new_gamma[more_extreme_TC_ori_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+
+
+ggplot(data=NULL) +
+  geom_point(aes(factor(myrefData2$colnames), yty_gamma)) +
+  geom_point(aes(factor(myrefData2$colnames)[more_extreme_TC_ori_id], yty_gamma[more_extreme_TC_ori_id]), color = "red") +   theme(axis.text.x=element_blank(),axis.ticks.x=element_blank())
+```
+
+# substantitve meaning
+
+
+
+
+```{r, fig.width=12, fig.height=4}
+compare2$new_gamma = new_gamma
+
+compare2 %>% filter(! is.na(party)) %>% ggplot() + geom_density(aes(new_gamma)) + facet_wrap(~party)
+
+
+
+compare2 = read.csv("compare_add.csv")
+compare2 %>% filter(! is.na(party)) %>% ggplot() + geom_density(aes(new_gamma)) + facet_wrap(~party)
+compare2 %>% filter(! is.na(party)) %>% ggplot() + geom_density(aes(yty_gamma)) + facet_wrap(~party)
+compare2 %>% filter(! is.na(party)) %>% ggplot() + geom_density(aes(gamma)) + facet_wrap(~party)
+```
+
+
