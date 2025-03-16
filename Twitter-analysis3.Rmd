@@ -1,0 +1,945 @@
+---
+title: "AVL_Codes_Old"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F)
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(httr)
+library(jsonlite)
+# library(RTwitterV2)
+library(tweetscores)
+library(rtweet)
+ggplot2::theme_set(ggplot2::theme_bw())
+knitr::opts_chunk$set(out.width = "100%", fig.align = 'center')
+
+load("All_Data/Final Data with Treatment Assignments.Rdata")
+load("experiment.RData")
+```
+
+
+## Important Dates
+
+# 10.13             Data starts. Initial suvery taken
+# 10.17             Experiment Starts (following bots)
+# 11.23-27          Post Survey taken
+# 02.01             This Data ends
+
+
+
+ID: 17639368
+
+
+```{r}
+length(unique(final_assignments$id_str))
+length(unique((final_assignments %>% filter(treat == "1"))$id_str))
+length(unique((final_assignments %>% filter(treat == "0"))$id_str))
+```
+
+
+```{r}
+load("result_ip_match.RData")
+result_ip_match %>% filter(ideal_point == -Inf)
+result_ip_match = result_ip_match %>% mutate(ideal_point = ifelse(ideal_point == -Inf, -2, ideal_point))
+current_ip_oldref = result_ip_match %>% filter(estimate == "old") %>% select(id_str, ideal_point) %>% mutate(Date = "2022-11-13")
+current_ip_oldref = result_ip_match %>% filter(estimate == "old") %>% select(id_str, ideal_point) %>% mutate(Date = "2022-11-13")
+```
+
+```{r}
+all_ip_oldref = rbind(experiment2, current_ip_oldref) %>% filter(id_str %in% current_ip_oldref$id_str)
+all_ip_oldref = rbind(experiment2, current_ip_oldref) %>% filter(id_str %in% current_ip_oldref$id_str)
+```
+
+```{r}
+all_ip_oldref_info <- left_join(all_ip_oldref, final_assignments, by=c("id_str" = "id_str")) %>% 
+  mutate(ideal_point = as.numeric(ideal_point)) %>% select(id_str, ideal_point, Date, party_ID, treat, party_strength) %>% na.omit()
+
+all_ip_oldref_info <- left_join(all_ip_oldref, final_assignments, by=c("id_str" = "id_str")) %>% 
+  mutate(ideal_point = as.numeric(ideal_point)) %>% select(id_str, ideal_point, Date, party_ID, treat, party_strength) %>% na.omit()
+```
+
+
+
+```{r}
+all_ip_oldref_info %>% filter(Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>% group_by(Date, party_ID)%>% summarise(mean(ideal_point),n())
+
+
+all_ip_oldref_info %>% filter(Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>% group_by(Date)%>% summarise(mean(ideal_point),n())
+```
+
+
+
+```{r, fig.width=15, fig.height=4.5, warning=F}
+library(gridExtra)
+# Define the blue and red colors
+blue_color <- "#0000FF"
+red_color <- "#FF0000"
+
+# Create the blue and red color palette
+color_palette <- c(blue_color, red_color)
+
+
+legend <- cowplot::get_legend(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "All Treatment", y = "Density", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    scale_color_manual(values = color_palette) + facet_wrap(~Date)
+)
+
+grid.arrange(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "Treated Group", y = "Density", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    facet_wrap(~Date) + scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  all_ip_oldref_info %>% filter(treat == "0", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "Control Group", y = "Density", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    facet_wrap(~Date) +  scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  nrow = 1,
+  right = legend
+)
+
+
+
+legend <- cowplot::get_legend(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "All Treatment", y = "Density", x = "Ideal Points", color = "Party Affiliation") +
+    scale_color_manual(values = color_palette) + facet_wrap(~Date)
+)
+
+grid.arrange(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "All Treatment", y = "Density", x = "Ideal Points", color = "Party Affiliation") +
+    facet_wrap(~Date) + scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  all_ip_oldref_info %>% filter(treat == "0", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "All Control", y = "Density", x = "Ideal Points", color = "Party Affiliation") +
+    facet_wrap(~Date) +  scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  nrow = 1,
+  right = legend
+)
+```
+
+```{r, fig.width=15, fig.height=4.5, warning=F}
+library(gridExtra)
+# Define the blue and red colors
+blue_color <- "#0000FF"
+red_color <- "#FF0000"
+
+# Create the blue and red color palette
+color_palette <- c(blue_color, red_color)
+
+legend <- cowplot::get_legend(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_histogram(alpha = 0.3) +
+    labs(title = "All Treatment", y = "Counts", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    scale_color_manual(values = color_palette) + facet_wrap(~Date)
+)
+
+grid.arrange(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    # filter(party_ID == "Democrat") %>% 
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_histogram(alpha = 0.3) +
+    labs(title = "Treated", y = "Counts", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    facet_wrap(~Date) + scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  all_ip_oldref_info %>% filter(treat == "0", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    # filter(party_ID == "Democrat") %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_histogram(alpha = 0.3) +
+    labs(title = "Control", y = "Counts", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    facet_wrap(~Date) +  scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  nrow = 1,
+  right = legend
+)
+
+
+grid.arrange(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    filter(party_ID == "Democrat") %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_histogram(alpha = 0.3) +
+    labs(title = "All Treatment", y = "Counts", x = "Ideal Points", color = "Party Affiliation") +
+    facet_wrap(~Date) + scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  all_ip_oldref_info %>% filter(treat == "0", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    filter(party_ID == "Democrat") %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_histogram(alpha = 0.3) +
+    labs(title = "All Control", y = "Counts", x = "Ideal Points", color = "Party Affiliation") +
+    facet_wrap(~Date) +  scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  nrow = 1,
+  right = legend
+)
+
+
+grid.arrange(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    filter(party_ID != "Democrat") %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_histogram(alpha = 0.3) +
+    labs(title = "All Treatment", y = "Counts", x = "Ideal Points", color = "Party Affiliation") +
+    facet_wrap(~Date) + scale_color_manual(values = "#FF0000") + 
+    theme(legend.position = "none"),
+  
+  all_ip_oldref_info %>% filter(treat == "0", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    filter(party_ID != "Democrat") %>%
+    ggplot(aes(x = ideal_point, color = party_ID)) +
+    geom_histogram(alpha = 0.3) +
+    labs(title = "All Control", y = "Counts", x = "Ideal Points", color = "Party Affiliation") +
+    facet_wrap(~Date) +  scale_color_manual(values = "#FF0000") + 
+    theme(legend.position = "none"),
+  
+  nrow = 1,
+  right = legend
+)
+```
+
+```{r, fig.width=15, fig.height=4.5, warning=F}
+# Define the blue and red colors
+blue_color <- "blue4"
+red_color <- "red4"
+blue2_color <- "dodgerblue1"
+red2_color <- "hotpink1"
+
+# Create the blue and red color palette
+color_palette <- c(blue_color, red_color, blue2_color, red2_color)
+
+
+legend <- cowplot::get_legend(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_strength)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "All Treatment", y = "Density", x = "Ideal Points", color = "Party Affiliation") +
+    scale_color_manual(values = color_palette) + facet_wrap(~Date)
+)
+
+grid.arrange(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_strength)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "Treated", y = "Density", x = "Ideal Points", color = "Party Affiliation") +
+    facet_wrap(~Date) + scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  all_ip_oldref_info %>% filter(treat == "0", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_strength)) +
+    geom_density(alpha = 0.3) +
+    labs(title = "Control", y = "Density", x = "Ideal Points", color = "Party Affiliation") +
+    facet_wrap(~Date) +  scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  nrow = 1,
+  right = legend
+)
+
+
+
+
+# Create the blue and red color palette
+color_palette <- c(blue_color, blue2_color, red2_color, red_color)
+
+
+legend <- cowplot::get_legend(
+  all_ip_oldref_info %>% 
+    filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    mutate(party_strength = factor(party_strength, levels = c("Strong Democrat", "Weak Democrat", "Weak Republican", "Strong Republican"))) %>% 
+    ggplot(aes(ideal_point, color = party_strength)) +
+    geom_boxplot() + coord_flip() + 
+    labs(title = "Treated Group", y = "Party Affiliation", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    facet_wrap(~Date) + scale_color_manual(values = color_palette) + guides(colour = guide_legend(nrow = 1))
+)
+
+grid.arrange(
+  all_ip_oldref_info %>% 
+    filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    mutate(party_strength = factor(party_strength, levels = c("Strong Democrat", "Weak Democrat", "Weak Republican", "Strong Republican"))) %>% 
+    ggplot(aes(ideal_point, color = party_strength)) +
+    geom_boxplot() + coord_flip() + 
+    labs(title = "Treated Group", y = "Party Affiliation", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    facet_wrap(~Date) + scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none", axis.text.x=element_blank(), axis.ticks.x=element_blank()),
+  
+  all_ip_oldref_info %>% 
+    filter(treat == "0", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    mutate(party_strength = factor(party_strength, levels = c("Strong Democrat", "Weak Democrat", "Weak Republican", "Strong Republican"))) %>% 
+    ggplot(aes(ideal_point, color = party_strength)) +
+    geom_boxplot() + coord_flip() + 
+    labs(title = "Control Group", y = "Party Affiliation", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    facet_wrap(~Date) +  scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none", axis.text.x=element_blank(), axis.ticks.x=element_blank()),
+  
+  nrow = 1,
+  bottom = legend
+)
+
+table(all_ip_oldref_info$party_strength)
+
+
+# Create the blue and red color palette
+color_palette <- c(blue_color, blue2_color, red2_color, red_color)
+all_ip_oldref_info %>% 
+    filter(treat == "0", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    mutate(party_strength = factor(party_strength, levels = c("Strong Democrat", "Weak Democrat", "Weak Republican", "Strong Republican"))) %>% 
+    ggplot(aes(ideal_point, color = party_strength)) +
+    geom_boxplot() + coord_flip() + 
+    labs(title = "", y = "Party Affiliation", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    facet_wrap(~Date) +  scale_color_manual(values = color_palette) + 
+    theme(axis.text.x=element_blank(), axis.ticks.x=element_blank()) 
+
+
+
+legend <- cowplot::get_legend(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    ggplot(aes(x = ideal_point, color = party_strength)) +
+    geom_histogram(alpha = 0.3) +
+    labs(title = "All Treatment", y = "Counts", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    scale_color_manual(values = color_palette) + facet_wrap(~Date)
+)
+
+grid.arrange(
+  all_ip_oldref_info %>% filter(treat == "1", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    # filter(party_ID == "Democrat") %>% 
+    ggplot(aes(x = ideal_point, color = party_strength)) +
+    geom_histogram(alpha = 0.3) +
+    labs(title = "Treated", y = "Counts", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    facet_wrap(~Date) + scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  all_ip_oldref_info %>% filter(treat == "0", Date %in% c("2017-10-20", "2017-11-27", "2018-02-01", "2022-11-13")) %>%
+    # filter(party_ID == "Democrat") %>%
+    ggplot(aes(x = ideal_point, color = party_strength)) +
+    geom_histogram(alpha = 0.3) +
+    labs(title = "Control", y = "Counts", x = "Ideal Points", color = "Self-reported Party Affiliation") +
+    facet_wrap(~Date) +  scale_color_manual(values = color_palette) + 
+    theme(legend.position = "none"),
+  
+  nrow = 1,
+  right = legend
+)
+
+```
+
+
+
+
+
+
+
+# available size of data over time
+
+```{r, fig.width=12}
+experiment2 %>% group_by(Date) %>% summarise(available_data = n()) %>% ggplot(aes(x=Date,y=available_data)) + geom_point() + geom_line(aes(group = 1)) + theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust=1))
+```
+
+
+# DID calculation
+ 
+$$\hat \tau_{DID} = (\bar Y_{1, t+1}-\bar Y_{1, t}) - (\bar Y_{0, t+1}-\bar Y_{0, t}) $$
+$$\hat \tau_{DID} = (\bar Y_{1, t+1}-\bar Y_{0, t+1}) - (\bar Y_{1, t}-\bar Y_{0, t}) $$
+
+
+```{r}
+# DEM
+ 
+trt_ip_oldref_wider_dem = all_ip_oldref_info %>% filter(Date %in% c("2017-10-20","2022-11-13")) %>% filter(treat == 1, party_ID == "Democrat") %>% 
+  pivot_wider(names_from = Date, values_from = ideal_point) %>% na.omit()
+
+control_ip_oldref_wider_dem = all_ip_oldref_info %>% filter(Date %in% c("2017-10-20","2022-11-13")) %>% filter(treat == 0, party_ID == "Democrat") %>% 
+  pivot_wider(names_from = Date, values_from = ideal_point) %>% na.omit()
+
+# DID
+DID_dem = (mean(trt_ip_oldref_wider_dem$`2022-11-13`) - mean(control_ip_oldref_wider_dem$`2022-11-13`) ) - (mean(trt_ip_oldref_wider_dem$`2017-10-20`) - mean(control_ip_oldref_wider_dem$`2017-10-20`))
+DID_dem
+
+control_change_dem = mean(control_ip_oldref_wider_dem$`2017-10-20`) - mean(control_ip_oldref_wider_dem$`2022-11-13`)
+treat_start_dem = mean(trt_ip_oldref_wider_dem$`2017-10-20`)
+treat_end_dem = mean(trt_ip_oldref_wider_dem$`2017-10-20`) - control_change_dem
+```
+
+
+```{r}
+# REP 
+trt_ip_oldref_wider_rep = all_ip_oldref_info %>% filter(Date %in% c("2017-10-20","2022-11-13")) %>% filter(treat == 1, party_ID == "Republican") %>% 
+  pivot_wider(names_from = Date, values_from = ideal_point) %>% na.omit()
+
+control_ip_oldref_wider_rep = all_ip_oldref_info %>% filter(Date %in% c("2017-10-20","2022-11-13")) %>% filter(treat == 0, party_ID == "Republican") %>% 
+  pivot_wider(names_from = Date, values_from = ideal_point) %>% na.omit()
+
+# DID
+DID_rep = (mean(trt_ip_oldref_wider_rep$`2022-11-13`) - mean(control_ip_oldref_wider_rep$`2022-11-13`)) - 
+(mean(trt_ip_oldref_wider_rep$`2017-10-20`) - mean(control_ip_oldref_wider_rep$`2017-10-20`))
+DID_rep
+
+control_change_rep = mean(control_ip_oldref_wider_rep$`2017-10-20`) - mean(control_ip_oldref_wider_rep$`2022-11-13`)
+treat_start_rep = mean(trt_ip_oldref_wider_rep$`2017-10-20`) 
+treat_end_rep = mean(trt_ip_oldref_wider_rep$`2017-10-20`) - control_change_rep
+```
+
+```{r}
+mean(trt_ip_oldref_wider_rep$`2017-10-20`)
+mean(control_ip_oldref_wider_rep$`2017-10-20`)
+
+mean(trt_ip_oldref_wider_rep$`2022-11-13`)
+mean(control_ip_oldref_wider_rep$`2022-11-13`)
+
+
+
+median(trt_ip_oldref_wider_rep$`2017-10-20`)
+median(control_ip_oldref_wider_rep$`2017-10-20`)
+
+median(trt_ip_oldref_wider_rep$`2022-11-13`)
+median(control_ip_oldref_wider_rep$`2022-11-13`)
+```
+
+# DID plots 
+
+```{r}
+# Define the blue and red colors
+blue_color <- "#0000FF"
+red_color <- "#FF0000"
+color_palette <- c(blue_color, red_color)
+
+
+# all_ip_oldref_info %>% filter(treat == "1", party_ID != "Democrat", Date %in% c("2017-10-20", "2022-11-13")) %>%
+#   ggplot(aes(y=ideal_point, color = Date, x = Date)) + geom_boxplot() + labs(title = "Republican Treatment")
+
+rbind(trt_ip_oldref_wider_dem,trt_ip_oldref_wider_rep)[,-1] %>% pivot_longer(cols = 4:5, names_to = "Date", values_to = "ideal_point") %>%
+  ggplot(aes(y=ideal_point, color = party_ID, x = Date)) + geom_boxplot() + labs(title = "Treatment") + 
+  stat_summary(fun.y=mean, geom="point", shape=20, size=5) + 
+  scale_color_manual(values = color_palette)
+
+rbind(control_ip_oldref_wider_dem,control_ip_oldref_wider_rep)[,-1]  %>% pivot_longer(cols = 4:5, names_to = "Date", values_to = "ideal_point") %>%
+  ggplot(aes(y=ideal_point, color = party_ID, x = Date)) + geom_boxplot() + labs(title = "Control") + 
+  stat_summary(fun.y=mean, geom="point", shape=20, size=5) + 
+  scale_color_manual(values = color_palette)
+
+
+
+rbind(trt_ip_oldref_wider_dem,control_ip_oldref_wider_dem)[,-1] %>% pivot_longer(cols = 4:5, names_to = "Date", values_to = "ideal_point") %>%
+  ggplot(aes(y = ideal_point, x = Date, color = factor(treat))) +
+  stat_summary(fun.y = mean, geom = "point", shape = 20, size = 5) +
+  stat_summary(fun.y = mean, geom = "line", aes(group = factor(treat)), size = 1) +
+  labs(title = "Democrat") + 
+  scale_color_manual(values = color_palette)
+  
+rbind(trt_ip_oldref_wider_rep,control_ip_oldref_wider_rep)[,-1] %>% pivot_longer(cols = 4:5, names_to = "Date", values_to = "ideal_point") %>% 
+  ggplot(aes(y = ideal_point, x = Date, color = factor(treat))) +
+  stat_summary(fun.y = mean, geom = "point", shape = 20, size = 5) +
+  stat_summary(fun.y = mean, geom = "line", aes(group = factor(treat)), size = 1) +
+  labs(title = "Republican") + 
+  scale_color_manual(values = color_palette)
+```
+
+
+```{r, fig.width=12, fig.height=3, warning=F}
+color_palette <- c("orange", "yellowgreen")
+
+
+legend <- cowplot::get_legend(
+rbind(trt_ip_oldref_wider_dem,control_ip_oldref_wider_dem)[,-1] %>% pivot_longer(cols = 4:5, names_to = "Date", values_to = "ideal_point") %>% 
+  ggplot(aes(y = ideal_point, x = Date, color = factor(treat))) +
+  stat_summary(fun.y = mean, geom = "point", shape = 20, size = 5) +
+  stat_summary(fun.y = mean, geom = "line", aes(group = factor(treat)), size = 1) +
+  labs(title = "Democrat", color = "Treatment", y = "Average Ideal Point") + 
+  scale_color_manual(values = color_palette) 
+)
+
+grid.arrange(
+rbind(trt_ip_oldref_wider_dem,control_ip_oldref_wider_dem)[,-1] %>% pivot_longer(cols = 4:5, names_to = "Date", values_to = "ideal_point") %>% 
+  ggplot(aes(y = ideal_point, x = Date, color = factor(treat))) +
+  stat_summary(fun.y = mean, geom = "point", shape = 20, size = 5) +
+  stat_summary(fun.y = mean, geom = "line", aes(group = factor(treat)), size = 1) +
+  geom_point(data = data.frame(Date = c("2017-10-20","2022-11-13"), ideal_point = c(treat_start_dem, treat_end_dem)), 
+            aes(x = Date, y = ideal_point), color ="yellowgreen", shape = 1, size = 3) + 
+  geom_line(data = data.frame(Date = c("2017-10-20","2022-11-13"), ideal_point = c(treat_start_dem, treat_end_dem)), 
+            aes(x = Date, y = ideal_point, group = 1), color ="yellowgreen", linetype = "dashed") +
+  labs(title = "Democrat", color = "Treatment", y = "Average Ideal Point") + 
+  scale_color_manual(values = color_palette) + theme(legend.position = "none")
+,  
+rbind(trt_ip_oldref_wider_rep,control_ip_oldref_wider_rep)[,-1] %>% pivot_longer(cols = 4:5, names_to = "Date", values_to = "ideal_point") %>% 
+  ggplot(aes(y = ideal_point, x = Date)) +
+  stat_summary(fun.y = mean, geom = "point", aes(color = factor(treat)), shape = 20, size = 5) +
+  stat_summary(fun.y = mean, geom = "line", aes(color = factor(treat), group = factor(treat)), size = 1) +
+  geom_point(data = data.frame(Date = c("2017-10-20","2022-11-13"), ideal_point = c(treat_start_rep, treat_end_rep)), 
+            aes(x = Date, y = ideal_point), color ="yellowgreen", shape = 1, size = 3) + 
+  geom_line(data = data.frame(Date = c("2017-10-20","2022-11-13"), ideal_point = c(treat_start_rep, treat_end_rep)), 
+            aes(x = Date, y = ideal_point, group = 1), color ="yellowgreen", linetype = "dashed") +
+  labs(title = "Republican", color = "Treatment", y = "Average Ideal Point") + 
+  scale_color_manual(values = color_palette) + theme(legend.position = "none"), 
+  nrow = 1,   
+  right = legend
+)
+```
+
+
+
+
+
+```{r}
+# var
+var_dem = var(trt_ip_oldref_wider_dem$`2017-10-20`) / length(trt_ip_oldref_wider_dem$`2017-10-20`) + 
+var(trt_ip_oldref_wider_dem$`2022-11-13`) / length(trt_ip_oldref_wider_dem$`2022-11-13`) + 
+var(control_ip_oldref_wider_dem$`2017-10-20`) / length(control_ip_oldref_wider_dem$`2017-10-20`) + 
+var(control_ip_oldref_wider_dem$`2022-11-13`) / length(control_ip_oldref_wider_dem$`2022-11-13`) 
+var_dem
+
+var_rep = var(trt_ip_oldref_wider_rep$`2017-10-20`) / length(trt_ip_oldref_wider_rep$`2017-10-20`) + 
+var(trt_ip_oldref_wider_rep$`2022-11-13`) / length(trt_ip_oldref_wider_rep$`2022-11-13`) + 
+var(control_ip_oldref_wider_rep$`2017-10-20`) / length(control_ip_oldref_wider_rep$`2017-10-20`) + 
+var(control_ip_oldref_wider_rep$`2022-11-13`) / length(control_ip_oldref_wider_rep$`2022-11-13`) 
+var_rep
+```
+
+
+```{r}
+# interval
+# Dem
+c(DID_dem, sqrt(var_dem))
+DID_dem + c(-1,1) * 1.96 * sqrt(var_dem)
+```
+
+```{r}
+# Rep
+c(DID_rep,  sqrt(var_rep))
+DID_rep + c(-1,1) * 1.96 * sqrt(var_rep)
+```
+
+
+
+# DID Regression formulation
+
+<!-- \alpha_i &\equiv \alpha+ \gamma A_i\\ -->
+
+$$
+\begin{aligned}
+Y_{it} &= \alpha_i+\lambda_t+\rho \mathrm{D}_{i t}+ \delta \mathrm{X}_{i t}+ \epsilon_{it} 
+\end{aligned}
+$$
+
+### Democratic regression
+
+```{r}
+dem_avail = rbind(trt_ip_oldref_wider_dem, control_ip_oldref_wider_dem) %>% 
+  left_join(final_assignments, by = "id_str") %>% 
+  pivot_longer(cols = 5:6, names_to = "Time", values_to = "ideal_point") %>% 
+  select(id_str, party_ID.x, treat.x, Time, ideal_point, gender_of, age, race_of, party_strength.x, freq_twitter, political, percent_co_party) %>% 
+  mutate(Time_to_treat = ifelse(Time == "2017-10-20", 0, 1)) %>% 
+  mutate(D_it = treat.x * Time_to_treat) 
+
+
+dem_lm_1 = lm(ideal_point ~ id_str + Time + D_it - 1, data = dem_avail)
+dem_lm_1_summ = summary(dem_lm_1)
+tail(dem_lm_1_summ$coefficients, 2)
+tail(confint(dem_lm_1, level = 0.9),1)
+
+# more covariates
+dem_lm_2 = lm(ideal_point ~ id_str + Time + age + race_of + gender_of + freq_twitter + political + D_it - 1, data = dem_avail)
+dem_lm_2_summ = summary(dem_lm_2)
+tail(dem_lm_2_summ$coefficients, 2)
+tail(confint(dem_lm_2),1)
+
+
+# random-effects model (with random intercept)
+dem_re = lme4::lmer(ideal_point ~ Time + D_it + (1 | id_str) - 1, data = dem_avail)
+summ_lmer = summary(dem_re)
+tail(summ_lmer$coefficients, 1)[1]
+tail(confint(dem_re, method="Wald"),1)
+```
+
+
+```{r}
+# more days
+all_dem_all_day = all_ip_oldref_info %>% 
+    filter(Date %in% c("2017-10-13", "2017-10-20", "2017-11-23", "2017-11-27", "2018-02-01", "2022-11-13"))%>%
+    left_join(final_assignments, by = "id_str") %>% 
+  select(id_str, Date, party_ID.x, treat.x, ideal_point, gender_of, age, race_of, party_strength.x, freq_twitter, political, percent_co_party) %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  mutate(Time = ifelse(Date == "2017-10-13", 0, Date - as.Date("2017-10-13"))) %>% 
+  mutate(Time_to_treat = ifelse(Time <= 42, 0, 1)) %>% 
+  mutate(D_it = treat.x * Time_to_treat) 
+
+
+dem_lm_all = lm(ideal_point ~ id_str + factor(Date) + D_it - 1, data = all_dem_all_day)
+dem_lm_all_summ = summary(dem_lm_all)
+tail(dem_lm_all_summ$coefficients, 5)
+tail(confint(dem_lm_all, level = 0.9) ,5)
+
+
+# dem_lm_all = lm(ideal_point ~ id_str + factor(Date) + age + race_of + gender_of + freq_twitter + political + D_it - 1, 
+#                 data = all_dem_all_day)
+# dem_lm_all_summ = summary(dem_lm_all)
+# tail(dem_lm_all_summ$coefficients, 5)
+# tail(confint(dem_lm_all),5)
+```
+
+
+### Republican regression
+
+```{r}
+rep_avail = rbind(trt_ip_oldref_wider_rep,control_ip_oldref_wider_rep) %>% left_join(final_assignments, by = "id_str") %>% 
+  pivot_longer(cols = 5:6, names_to = "Time", values_to = "ideal_point") %>% 
+  select(id_str, party_ID.x, treat.x, Time, ideal_point, gender_of, age, race_of, party_strength.x, freq_twitter, political, percent_co_party) %>% 
+  mutate(Time_to_treat = ifelse(Time == "2017-10-20", 0, 1)) %>% 
+  mutate(D_it = treat.x * Time_to_treat) 
+
+rep_lm_1 = lm(ideal_point ~ id_str + Time + D_it - 1, data = rep_avail)
+rep_lm_1_summ = summary(rep_lm_1)
+tail(rep_lm_1_summ$coefficients, 2)
+tail(confint(rep_lm_1, level = 0.9),1)
+
+# covariates
+rep_lm_2 = lm(ideal_point ~ id_str + Time + age + race_of + gender_of + freq_twitter + political + D_it - 1, data = rep_avail)
+rep_lm_2_summ = summary(rep_lm_2)
+tail(rep_lm_2_summ$coefficients, 2)
+tail(confint(rep_lm_2),1)
+
+# random-effects model (with random intercept)
+rep_re = lme4::lmer(ideal_point ~ Time + D_it + (1 | id_str) - 1, data = rep_avail)
+summ_lmer = summary(rep_re)
+tail(summ_lmer$coefficients, 1)[1]
+tail(confint(rep_re, method="Wald"),1)
+```
+
+
+```{r}
+# more days
+all_rep_all_day = all_ip_oldref_info %>% filter(party_ID != "Democrat") %>% 
+    filter(Date %in% c("2017-10-13", "2017-10-20", "2017-11-23", "2017-11-27", "2018-02-01", "2022-11-13"))%>%
+    left_join(final_assignments, by = "id_str") %>% 
+  select(id_str, Date, party_ID.x, treat.x, ideal_point, gender_of, age, race_of, party_strength.x, freq_twitter, political, percent_co_party) %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  mutate(Time = ifelse(Date == "2017-10-13", 0, Date - as.Date("2017-10-13"))) %>% 
+  mutate(Time_to_treat = ifelse(Time <= 120, 0, 1)) %>% 
+  mutate(D_it = treat.x * Time_to_treat) 
+
+
+rep_lm_all = lm(ideal_point ~ id_str + factor(Time) + D_it - 1, data = all_rep_all_day)
+rep_lm_all_summ = summary(rep_lm_all)
+tail(rep_lm_all_summ$coefficients, 1)
+tail(confint(rep_lm_all), 1)
+
+
+rep_lm_all = lm(ideal_point ~ id_str + factor(Time) + age + race_of + gender_of + freq_twitter + political + D_it - 1, data = all_rep_all_day)
+rep_lm_all_summ = summary(rep_lm_all)
+tail(rep_lm_all_summ$coefficients, 2)
+tail(confint(rep_lm_all),1)
+```
+
+
+```{r}
+library(did)
+
+all_dem_did = all_ip_oldref_info %>% filter(party_ID == "Democrat") %>% 
+    filter(Date %in% c( "2017-10-20", "2017-11-23", "2022-11-13"))%>%
+    left_join(final_assignments, by = "id_str") %>% 
+  select(id_str, Date, party_ID.x, treat.x, ideal_point, gender_of, age, race_of, party_strength.x, freq_twitter, political, percent_co_party) %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  mutate(Time = ifelse(Date == "2017-10-13", 0, Date - as.Date("2017-10-13"))) %>% 
+  mutate(Time_to_treat = ifelse(Time <= 30, 0, 1)) %>% 
+  mutate(D_it = treat.x * Time_to_treat) %>% 
+  mutate(first_treat = ifelse(treat.x == 0, 0, 30)) %>% 
+  mutate(id = as.numeric(id_str))
+
+dem.attgt <- att_gt(yname = "ideal_point",
+                   gname = "first_treat",
+                   idname = "id",
+                   tname = "Time",
+                   xformla = ~1,
+                   data = all_dem_did,
+                   )
+
+summary(dem.attgt)
+ggdid(dem.attgt)
+
+
+
+
+all_rep_did = all_ip_oldref_info %>% filter(party_ID != "Democrat") %>% 
+    filter(Date %in% c("2017-10-20", "2017-11-23", "2022-11-13"))%>%
+    left_join(final_assignments, by = "id_str") %>% 
+  select(id_str, Date, party_ID.x, treat.x, ideal_point, gender_of, age, race_of, party_strength.x, freq_twitter, political, percent_co_party) %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  mutate(Time = ifelse(Date == "2017-10-13", 0, Date - as.Date("2017-10-13"))) %>% 
+  mutate(Time_to_treat = ifelse(Time <= 30, 0, 1)) %>% 
+  mutate(D_it = treat.x * Time_to_treat) %>% 
+  mutate(first_treat = ifelse(treat.x == 0, 0, 30)) %>% 
+  mutate(id = as.numeric(id_str))
+
+rep.attgt <- att_gt(yname = "ideal_point",
+                   gname = "first_treat",
+                   idname = "id",
+                   tname = "Time",
+                   xformla = ~1,
+                   data = all_rep_did,
+                   )
+
+summary(rep.attgt)
+ggdid(rep.attgt)
+```
+
+
+
+```{r}
+all_dem_did = all_ip_oldref_info %>% filter(party_ID == "Democrat") %>% mutate(Date = as.Date(Date)) %>% 
+    filter(Date >= c("2017-10-20"))%>%
+    filter(Date <= "2017-11-28"| Date >= "2018-11-20") %>% 
+    left_join(final_assignments, by = "id_str") %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  mutate(Time = ifelse(Date == "2017-10-20", 0, Date - as.Date("2017-10-20"))) %>% 
+  mutate(Time_to_treat = ifelse(Time <= 30, 0, 1)) %>% 
+  mutate(D_it = treat.x * Time_to_treat) %>% 
+  mutate(first_treat = ifelse(treat.x == 0, 0, 30)) %>% 
+  mutate(id = as.numeric(id_str))
+
+dem.attgt <- att_gt(yname = "ideal_point",
+                   gname = "first_treat",
+                   idname = "id",
+                   tname = "Time",
+                   xformla = ~1,
+                   data = all_dem_did,
+                   )
+
+summary(dem.attgt)
+ggdid(dem.attgt)
+
+
+
+
+all_rep_did = all_ip_oldref_info %>% filter(party_ID != "Democrat") %>% mutate(Date = as.Date(Date)) %>% 
+    filter(Date >= c("2017-10-20"))%>%
+    filter(Date <= "2017-11-28"| Date >= "2018-11-20") %>% 
+    left_join(final_assignments, by = "id_str") %>% 
+    left_join(final_assignments, by = "id_str") %>% 
+  mutate(Date = as.Date(Date)) %>% 
+  mutate(Time = ifelse(Date == "2017-10-20", 0, Date - as.Date("2017-10-20"))) %>% 
+  mutate(Time_to_treat = ifelse(Time <= 30, 0, 1)) %>% 
+  mutate(D_it = treat.x * Time_to_treat) %>% 
+  mutate(first_treat = ifelse(treat.x == 0, 0, 30)) %>% 
+  mutate(id = as.numeric(id_str))
+
+rep.attgt <- att_gt(yname = "ideal_point",
+                   gname = "first_treat",
+                   idname = "id",
+                   tname = "Time",
+                   xformla = ~1,
+                   data = all_rep_did,
+                   )
+
+summary(rep.attgt)
+ggdid(rep.attgt)
+```
+
+
+# Missing data analysis
+
+1516 participants roughly at the start of experiment
+
+340 do not have a match in `final_assignments` (1239 participants)
+
+135 participants cannot be performed estimations back then 
+
+337 were available then, but not available now 
+
+704 analyzed participants 
+Democrat: 439  Republican: 265 
+0: 282         1: 422
+
+```{r, fig.width=15, fig.height=4}
+experiment2 %>% filter(Date == "2017-10-20") # 1516
+
+experiment2 %>% filter(Date == "2017-10-20") %>% filter(!id_str %in% final_assignments$id_str) # 340
+
+analyzed_ppl = experiment2 %>% filter(Date == "2017-10-20") %>% filter(id_str %in% final_assignments$id_str) %>% na.omit(ideal_point) %>% filter(id_str %in% current_ip_oldref$id_str)
+missing_ppl = experiment2 %>% filter(Date == "2017-10-20") %>% filter(id_str %in% final_assignments$id_str) %>% na.omit(ideal_point) %>% filter(!id_str %in% current_ip_oldref$id_str)
+unest_ppl = experiment2 %>% filter(Date == "2017-10-20") %>% filter(id_str %in% final_assignments$id_str) %>% filter(is.na(ideal_point))
+
+analyzed_ppl = left_join(analyzed_ppl, final_assignments, by=c("id_str" = "id_str"))
+missing_ppl = left_join(missing_ppl, final_assignments, by=c("id_str" = "id_str"))
+unest_ppl = left_join(unest_ppl, final_assignments, by=c("id_str" = "id_str"))
+
+# hist(analyzed_ppl$friends_count, col = "red", breaks = 100) 
+# hist(unest_ppl$friends_count, col = "blue", add = TRUE) 
+# ggplot() + geom_density(aes(analyzed_ppl$friends_count)) + geom_density(aes(unest_ppl$friends_count), color = "red")
+
+summary(unest_ppl$friends_count)
+summary(missing_ppl$friends_count)
+summary(analyzed_ppl$friends_count)
+
+par(mfrow = c(1, 3))
+barplot(prop.table( table(unest_ppl$party_strength) ) , main = "Unestimatable", ylab = "Percentage")
+barplot(prop.table( table(missing_ppl$party_strength) ) , main = "Missing", ylab = "Percentage")
+barplot(prop.table( table(analyzed_ppl$party_strength) ), main = "Analyzed", ylab = "Percentage")
+
+par(mfrow = c(1, 3))
+barplot(prop.table( table(unest_ppl$party_strength) ) , main = "Unestimatable", ylab = "Percentage", ylim = c(0,0.4))
+barplot(prop.table( table(missing_ppl$party_strength) ) , main = "Missing", ylab = "Percentage", ylim = c(0,0.4))
+barplot(prop.table( table(analyzed_ppl$party_strength) ), main = "Analyzed", ylab = "Percentage", ylim = c(0,0.4))
+
+
+par(mfrow = c(1, 3))
+barplot(prop.table( table(unest_ppl$active_twitter) ) , main = "Unestimatable", ylab = "Percentage", ylim = c(0,0.8))
+barplot(prop.table( table(missing_ppl$active_twitter) ) , main = "Missing", ylab = "Percentage", ylim = c(0,0.8))
+barplot(prop.table( table(analyzed_ppl$active_twitter) ), main = "Analyzed", ylab = "Percentage", ylim = c(0,0.8))
+
+par(mfrow = c(1, 3))
+barplot(prop.table( table(unest_ppl$freq_twitter) ) , main = "Unestimatable", ylab = "Percentage", ylim = c(0,0.8))
+barplot(prop.table( table(missing_ppl$freq_twitter) ) , main = "Missing", ylab = "Percentage", ylim = c(0,0.8))
+barplot(prop.table( table(analyzed_ppl$freq_twitter) ), main = "Analyzed", ylab = "Percentage", ylim = c(0,0.8))
+
+
+par(mfrow = c(1, 3))
+barplot(prop.table( table(unest_ppl$party_ID) ) , main = "Unestimatable", ylab = "Percentage", ylim = c(0,0.7))
+barplot(prop.table( table(missing_ppl$party_ID) ) , main = "Missing", ylab = "Percentage", ylim = c(0,0.7))
+barplot(prop.table( table(analyzed_ppl$party_ID) ), main = "Analyzed", ylab = "Percentage", ylim = c(0,0.7))
+
+
+par(mfrow = c(1, 1))
+plot(density(unest_ppl$age), main = "Age Distribution", col = 1, lwd = 5)
+lines(density(missing_ppl$age), col = 3, lwd = 5)
+lines(density(analyzed_ppl$age), col = 6, lwd = 5)
+legend(x = "topleft",box.lwd = 2 , title="Type", 
+       legend=c("Unestimatable", "Missing", "Analyzed"), 
+       fill = c(1,3,6))
+
+
+table(analyzed_ppl$party_ID)
+table(analyzed_ppl$treat)
+```
+
+
+# daily
+
+```{r}
+set.seed(202309)
+
+dem_treat_50 = sample(size = 50, unique((all_ip_oldref_info %>% filter(treat == 1, party_ID == "Democrat"))$id_str))
+dem_control_50 = sample(size = 50, unique((all_ip_oldref_info %>% filter(treat == 0, party_ID == "Democrat"))$id_str))
+rep_treat_50 = sample(size = 50, unique((all_ip_oldref_info %>% filter(treat == 1, party_ID != "Democrat"))$id_str))
+rep_control_50 = sample(size = 50, unique((all_ip_oldref_info %>% filter(treat == 0, party_ID != "Democrat"))$id_str))
+
+
+all_ip_oldref_info %>% 
+  filter(id_str %in% dem_treat_50) %>%
+  filter(Date != "2022-11-13") %>% dplyr::select(id_str, Date, ideal_point) %>% pivot_wider(names_from = Date, values_from = ideal_point)
+
+all_ip_oldref_info %>% 
+  filter(id_str %in% dem_treat_50) %>%
+  filter(Date != "2022-11-13") %>% 
+  ggplot(aes(x=as.Date(Date), y=ideal_point, color = id_str, group = id_str)) + 
+  geom_line() + labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + 
+  labs(title = "A sample from Dem in Treatment") + theme(legend.position = "none")
+
+
+all_ip_oldref_info %>% 
+  filter(id_str %in% dem_control_50) %>%
+  filter(Date != "2022-11-13") %>% 
+  ggplot(aes(x=as.Date(Date), y=ideal_point, color = id_str, group = id_str)) + 
+  geom_line() + labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + 
+  labs(title = "A sample from Dem in Control") + theme(legend.position = "none")
+
+
+
+all_ip_oldref_info %>% 
+  filter(id_str %in% rep_treat_50) %>%
+  filter(Date != "2022-11-13") %>% 
+  ggplot(aes(x=as.Date(Date), y=ideal_point, color = id_str, group = id_str)) + 
+  geom_line() + labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + 
+  labs(title = "A sample from Rep in Treatment") + theme(legend.position = "none")
+
+
+all_ip_oldref_info %>% 
+  filter(id_str %in% rep_control_50) %>%
+  filter(Date != "2022-11-13") %>% 
+  ggplot(aes(x=as.Date(Date), y=ideal_point, color = id_str, group = id_str)) + 
+  geom_line() + labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + 
+  labs(title = "A sample from Rep in Control") + theme(legend.position = "none")
+```
+
+
+```{r}
+set.seed(8848)
+
+dem_treat_50 = sample(size = 50, unique((all_ip_oldref_info %>% filter(treat == 1, party_ID == "Democrat"))$id_str))
+dem_control_50 = sample(size = 50, unique((all_ip_oldref_info %>% filter(treat == 0, party_ID == "Democrat"))$id_str))
+rep_treat_50 = sample(size = 50, unique((all_ip_oldref_info %>% filter(treat == 1, party_ID != "Democrat"))$id_str))
+rep_control_50 = sample(size = 50, unique((all_ip_oldref_info %>% filter(treat == 0, party_ID != "Democrat"))$id_str))
+
+
+all_ip_oldref_info %>% 
+  filter(id_str %in% dem_treat_50) %>%
+  filter(Date != "2022-11-13") %>% dplyr::select(id_str, Date, ideal_point) %>% pivot_wider(names_from = Date, values_from = ideal_point)
+
+all_ip_oldref_info %>% 
+  filter(id_str %in% dem_treat_50) %>%
+  filter(Date != "2022-11-13") %>% 
+  ggplot(aes(x=as.Date(Date), y=ideal_point, color = id_str, group = id_str)) + 
+  geom_line() + labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + 
+  labs(title = "A sample from Dem in Treatment") + theme(legend.position = "none")
+
+
+all_ip_oldref_info %>% 
+  filter(id_str %in% dem_control_50) %>%
+  filter(Date != "2022-11-13") %>% 
+  ggplot(aes(x=as.Date(Date), y=ideal_point, color = id_str, group = id_str)) + 
+  geom_line() + labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + 
+  labs(title = "A sample from Dem in Control") + theme(legend.position = "none")
+
+
+
+all_ip_oldref_info %>% 
+  filter(id_str %in% rep_treat_50) %>%
+  filter(Date != "2022-11-13") %>% 
+  ggplot(aes(x=as.Date(Date), y=ideal_point, color = id_str, group = id_str)) + 
+  geom_line() + labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + 
+  labs(title = "A sample from Rep in Treatment") + theme(legend.position = "none")
+
+
+all_ip_oldref_info %>% 
+  filter(id_str %in% rep_control_50) %>%
+  filter(Date != "2022-11-13") %>% 
+  ggplot(aes(x=as.Date(Date), y=ideal_point, color = id_str, group = id_str)) + 
+  geom_line() + labs(y = "Estiamted Ideal Point", x= "Date", color = "user id")  + 
+  labs(title = "A sample from Rep in Control") + theme(legend.position = "none")
+```
+
+
+# old reference elite
+
+```{r}
+# Load the knitr package
+library(knitr)
+
+# Print the table nicely using kable
+kable(data.frame("Twitter Account" = elite_name, `Estimation in 2015` = est_2015, `Estimation in 2022` = est_2022))
+```
+
+
+

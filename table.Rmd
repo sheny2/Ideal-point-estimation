@@ -1,0 +1,33 @@
+
+---
+title: "AVL_Codes"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F)
+library(mosaic)
+library(caret)
+library(httr)
+library(jsonlite)
+library(RTwitterV2)
+library(tweetscores)
+library(rtweet)
+ggplot2::theme_set(ggplot2::theme_bw())
+knitr::opts_chunk$set(out.width = "100%", fig.align = 'center')
+
+load("All_Data/Final Data with Treatment Assignments.Rdata")
+```
+
+```{r}
+# CNN, JoeBiden,SpeakerPelosi, sensanders, HillaryClinton,FoxNews,tedcruz,seanhannity
+fol_2015 = c(17459282,998737, 604664,349149,3612817,5235703,413664,1123327,2060971)
+fol_2022 = c(61122613,36903062, 8123329,12494541,31580745,23711845,5932078,6311037,5567201)
+```
+
+
+```{r}
+table_res = data.frame("Twitter Account" = elite_name, `Estimation in 2015` = est_2015, `Estimation in 2022` = est_2022, `Followers in 2015` = c(17459282,998737, 604664,349149,3612817,5235703,413664,1123327,2060971),
+           `Followers in 2022` = c(61122613,36903062, 8123329,12494541,31580745,23711845,5932078,6311037,5567201))
+knitr::kable(table_res %>% mutate(Ratio = Followers.in.2022/Followers.in.2015), format = "html") %>% kableExtra::kable_styling()
+```
